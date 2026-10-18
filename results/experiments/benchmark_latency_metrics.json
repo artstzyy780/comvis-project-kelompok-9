@@ -1,0 +1,214 @@
+{
+  "hardware": {
+    "os": "Windows 11 (10.0.26200)",
+    "cpu_processor": "AMD64 Family 25 Model 80 Stepping 0, AuthenticAMD",
+    "physical_cores": 6,
+    "logical_cores": 12,
+    "cpu_freq_mhz": 2301.0,
+    "total_ram_gb": 15.4,
+    "python_version": "3.14.6"
+  },
+  "split": "test",
+  "benchmarks": [
+    {
+      "model_id": "B0_ZeroShot",
+      "display_name": "B0: Zero-Shot Baseline (COCO Pretrained)",
+      "description": "Standard COCO pretrained model without domain fine-tuning",
+      "weights_path": "yolov8n.pt",
+      "split": "test",
+      "image_count": 100,
+      "latency": {
+        "total_mean_ms": 53.49,
+        "total_std_ms": 8.55,
+        "total_min_ms": 47.07,
+        "total_max_ms": 117.61,
+        "p50_ms": 51.54,
+        "p95_ms": 62.37,
+        "fps": 18.69,
+        "preprocess_mean_ms": 1.94,
+        "inference_mean_ms": 50.07,
+        "postprocess_mean_ms": 0.94,
+        "meets_realtime": false
+      },
+      "class_metrics": [
+        {
+          "class_id": 0,
+          "class_name": "Vehicle",
+          "ground_truth": 272,
+          "predictions": 208,
+          "true_positives": 111,
+          "false_positives": 97,
+          "false_negatives": 161,
+          "precision": 53.37,
+          "recall": 40.81,
+          "f1_score": 46.25
+        },
+        {
+          "class_id": 1,
+          "class_name": "person",
+          "ground_truth": 39,
+          "predictions": 53,
+          "true_positives": 8,
+          "false_positives": 45,
+          "false_negatives": 31,
+          "precision": 15.09,
+          "recall": 20.51,
+          "f1_score": 17.39
+        }
+      ],
+      "macro_precision": 34.23,
+      "macro_recall": 30.66,
+      "macro_f1": 31.82
+    },
+    {
+      "model_id": "Exp_A_Standard",
+      "display_name": "Exp-A: Fine-Tuned Standard Low-Light",
+      "description": "Fine-tuned YOLOv8n on raw low-light traffic images",
+      "weights_path": "hasil_final_model\\hasil_final_model\\Exp_A_Standard_best.pt",
+      "split": "test",
+      "image_count": 100,
+      "latency": {
+        "total_mean_ms": 52.04,
+        "total_std_ms": 12.1,
+        "total_min_ms": 46.12,
+        "total_max_ms": 150.02,
+        "p50_ms": 49.67,
+        "p95_ms": 58.59,
+        "fps": 19.21,
+        "preprocess_mean_ms": 2.71,
+        "inference_mean_ms": 47.94,
+        "postprocess_mean_ms": 0.86,
+        "meets_realtime": false
+      },
+      "class_metrics": [
+        {
+          "class_id": 0,
+          "class_name": "Vehicle",
+          "ground_truth": 272,
+          "predictions": 290,
+          "true_positives": 216,
+          "false_positives": 74,
+          "false_negatives": 56,
+          "precision": 74.48,
+          "recall": 79.41,
+          "f1_score": 76.87
+        },
+        {
+          "class_id": 1,
+          "class_name": "person",
+          "ground_truth": 39,
+          "predictions": 49,
+          "true_positives": 26,
+          "false_positives": 23,
+          "false_negatives": 13,
+          "precision": 53.06,
+          "recall": 66.67,
+          "f1_score": 59.09
+        }
+      ],
+      "macro_precision": 63.77,
+      "macro_recall": 73.04,
+      "macro_f1": 67.98
+    },
+    {
+      "model_id": "Exp_B_CLAHE",
+      "display_name": "Exp-B: Proposed Fine-Tuned + L-channel CLAHE",
+      "description": "Fine-tuned YOLOv8n with CLAHE enhanced training set",
+      "weights_path": "hasil_final_model\\hasil_final_model\\Exp_B_CLAHE_best.pt",
+      "split": "test",
+      "image_count": 100,
+      "latency": {
+        "total_mean_ms": 54.67,
+        "total_std_ms": 7.35,
+        "total_min_ms": 48.6,
+        "total_max_ms": 96.53,
+        "p50_ms": 52.26,
+        "p95_ms": 66.83,
+        "fps": 18.29,
+        "preprocess_mean_ms": 2.19,
+        "inference_mean_ms": 50.98,
+        "postprocess_mean_ms": 0.95,
+        "meets_realtime": false
+      },
+      "class_metrics": [
+        {
+          "class_id": 0,
+          "class_name": "Vehicle",
+          "ground_truth": 272,
+          "predictions": 293,
+          "true_positives": 212,
+          "false_positives": 81,
+          "false_negatives": 60,
+          "precision": 72.35,
+          "recall": 77.94,
+          "f1_score": 75.04
+        },
+        {
+          "class_id": 1,
+          "class_name": "person",
+          "ground_truth": 39,
+          "predictions": 28,
+          "true_positives": 19,
+          "false_positives": 9,
+          "false_negatives": 20,
+          "precision": 67.86,
+          "recall": 48.72,
+          "f1_score": 56.72
+        }
+      ],
+      "macro_precision": 70.11,
+      "macro_recall": 63.33,
+      "macro_f1": 65.88
+    },
+    {
+      "model_id": "Exp_C_Gamma",
+      "display_name": "Exp-C: Proposed Fine-Tuned + Gamma Correction",
+      "description": "Fine-tuned YOLOv8n with non-linear Gamma (gamma=0.6) training set",
+      "weights_path": "hasil_final_model\\hasil_final_model\\Exp_C_Gamma_best.pt",
+      "split": "test",
+      "image_count": 100,
+      "latency": {
+        "total_mean_ms": 54.25,
+        "total_std_ms": 8.03,
+        "total_min_ms": 47.57,
+        "total_max_ms": 101.44,
+        "p50_ms": 52.4,
+        "p95_ms": 60.68,
+        "fps": 18.43,
+        "preprocess_mean_ms": 2.36,
+        "inference_mean_ms": 50.19,
+        "postprocess_mean_ms": 0.89,
+        "meets_realtime": false
+      },
+      "class_metrics": [
+        {
+          "class_id": 0,
+          "class_name": "Vehicle",
+          "ground_truth": 272,
+          "predictions": 332,
+          "true_positives": 228,
+          "false_positives": 104,
+          "false_negatives": 44,
+          "precision": 68.67,
+          "recall": 83.82,
+          "f1_score": 75.5
+        },
+        {
+          "class_id": 1,
+          "class_name": "person",
+          "ground_truth": 39,
+          "predictions": 55,
+          "true_positives": 25,
+          "false_positives": 30,
+          "false_negatives": 14,
+          "precision": 45.45,
+          "recall": 64.1,
+          "f1_score": 53.19
+        }
+      ],
+      "macro_precision": 57.06,
+      "macro_recall": 73.96,
+      "macro_f1": 64.34
+    }
+  ]
+}

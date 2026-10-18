@@ -1,0 +1,39 @@
+{
+  "timestamp": "2026-10-17T18:50:00+07:00",
+  "project": "Deteksi Pedestrian Low-Light",
+  "dataset": "Roboflow Low-light v2 (2400 images)",
+  "epochs": 50,
+  "imgsz": 640,
+  "batch": 16,
+  "seed": 42,
+  "results": [
+    {
+      "experiment_id": "B0",
+      "name": "Zero-Shot Baseline (COCO)",
+      "recall_person": 0.391000,
+      "map50": 0.380000,
+      "delta_recall": 0.0
+    },
+    {
+      "experiment_id": "Exp-A",
+      "name": "Standard Fine-Tuned",
+      "recall_person": 0.732823,
+      "map50": 0.781240,
+      "delta_recall": 0.341823
+    },
+    {
+      "experiment_id": "Exp-B",
+      "name": "Proposed L-channel CLAHE",
+      "recall_person": 0.692670,
+      "map50": 0.777252,
+      "delta_recall": 0.301670
+    },
+    {
+      "experiment_id": "Exp-C",
+      "name": "Proposed Gamma Correction",
+      "recall_person": 0.734092,
+      "map50": 0.741687,
+      "delta_recall": 0.343092
+    }
+  ]
+}

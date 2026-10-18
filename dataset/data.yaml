@@ -1,0 +1,14 @@
+path: dataset # dataset root directory
+train: train/images
+val: valid/images
+test: test/images
+
+nc: 2
+names: ['Vehicle', 'person']
+
+roboflow:
+  workspace: object-detection-in-ll
+  project: low-light-sxzx2
+  version: 2
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/object-detection-in-ll/low-light-sxzx2/dataset/2

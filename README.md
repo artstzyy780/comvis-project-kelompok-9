@@ -119,8 +119,3 @@ python src/benchmark_inference.py
 Laporan lengkap akan otomatis dihasilkan pada `results/experiments/benchmark_latency_report.md`.
 
 ---
-
-## 👥 6. Kontributor
-
-* **Krisantus Linardi** — *Data Pipeline, Preprocessing Lead & Audit Specialist*
-* **Kristofer Leonard** — *Model Architecture, Training & Deployment Lead*

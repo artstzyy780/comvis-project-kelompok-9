@@ -12,8 +12,10 @@
 
 | Nama Mahasiswa | Peran & Tanggung Jawab Utama |
 |---|---|
-| **Krisantus Linardi** | Kelompok 9 — Data & Preprocessing Lead |
-| **Kristofer Leonard** | Kelompok 9 — Model & Deployment Lead |
+| **Krisantus Amka Ginting** | Kelompok 9 — Data & Preprocessing Lead |
+| **Linardi Halim** | Kelompok 9 — Documentation & Reporting Lead |
+| **Kristofer Ryan Giggs Eka Saputra** | Kelompok 9 — Model & Training Lead |
+| **Leonard Franscois** | Kelompok 9 — Demo & Deployment Lead |
 
 ---
 

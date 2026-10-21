@@ -33,6 +33,17 @@ ENV/
 runs/
 *.cache
 hasil_training_kelompok9/
+results/experiments/runs/
+
+# Derived Datasets (reproducible via src/rebuild_split_dedup.py & src/prepare_experiments.py)
+dataset_dedup/
+dataset_clahe/
+dataset_gamma/
+
+# Test & Coverage Artifacts
+.pytest_cache/
+.coverage
+htmlcov/
 
 # Large Compressed Archives
 *.zip

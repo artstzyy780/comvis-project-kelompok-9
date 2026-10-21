@@ -1,0 +1,80 @@
+# Registry eksperimen terkontrol (Checkpoint CP05 & CP09)
+# Satu-satunya sumber kebenaran konfigurasi pelatihan.
+# Aturan utama: arsitektur, seed, epoch, batch, dan resolusi DIKUNCI.
+# Hanya variabel "dataset_variant" yang berubah antar eksperimen fine-tuned.
+
+project: "Low-light Pedestrian Detection (IF0PP006) - Kelompok 09"
+
+common:
+  seed: 42
+  epochs: 50
+  imgsz: 640
+  batch: 16
+  device: 0          # GPU index pada Google Colab (T4)
+  pretrained_weights: "yolov8n.pt"
+  deterministic: true
+
+experiments:
+  - id: "B0_ZeroShot"
+    display_name: "B0: Zero-Shot Baseline (COCO Pretrained)"
+    dataset_variant: "raw"
+    is_zero_shot: true
+    evaluation_split: "test"
+    description: "YOLOv8n bobot MS COCO diuji langsung pada citra malam tanpa fine-tuning."
+    independent_variable: "Tidak ada pelatihan sama sekali (acuan pembanding)."
+    hyperparams:
+      epochs: 0
+
+  - id: "Exp_A_Standard"
+    display_name: "Exp-A: Fine-Tuned Standard Low-Light"
+    dataset_variant: "raw"
+    is_zero_shot: false
+    evaluation_split: "test"
+    description: "YOLOv8n di-fine-tune pada data malam asli tanpa prapemrosesan pencahayaan."
+    independent_variable: "Control group: fine-tuning domain tanpa augmentasi pencahayaan."
+    hyperparams:
+      epochs: 50
+      imgsz: 640
+      batch: 16
+      seed: 42
+      optimizer: "auto"
+      lr0: 0.01
+      patience: 100        # early stopping hanya aktif bila patience < epochs
+      cos_lr: true
+      pretrained: "yolov8n.pt"
+
+  - id: "Exp_B_CLAHE"
+    display_name: "Exp-B: Fine-Tuned + L-channel CLAHE"
+    dataset_variant: "clahe"
+    is_zero_shot: false
+    evaluation_split: "test"
+    description: "YOLOv8n di-fine-tune pada data latih yang diperkuat CLAHE kanal-L CIE L*a*b*."
+    independent_variable: "Pra-pemrosesan CLAHE (clip=2.0, tile=8x8) hanya pada data latih."
+    hyperparams:
+      epochs: 50
+      imgsz: 640
+      batch: 16
+      seed: 42
+      optimizer: "auto"
+      lr0: 0.01
+      patience: 100
+      cos_lr: true
+      pretrained: "yolov8n.pt"
+
+  - id: "Exp_C_Gamma"
+    display_name: "Exp-C: Fine-Tuned + Gamma Correction"
+    dataset_variant: "gamma"
+    is_zero_shot: false
+    evaluation_split: "test"
+    description: "YOLOv8n di-fine-tune pada data latih yang dikoreksi gamma non-linear."
+    independent_variable: "Pra-pemrosesan Gamma Correction (gamma=0.6) hanya pada data latih."
+    hyperparams:
+      epochs: 50
+      imgsz: 640
+      batch: 16
+      seed: 42
+      optimizer: "auto"
+      lr0: 0.01
+      patience: 100
+      cos_lr: true
+      pretrained: "yolov8n.pt"

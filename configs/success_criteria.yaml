@@ -1,0 +1,72 @@
+# Ukuran sukses proyek (Checkpoint CP04)
+# Target dideklarasikan SEBELUM eksperimen final agar tidak judged after the fact.
+# "target" adalah ambang minimum; "stretch_targets" adalah ambangPeu Lankan.
+
+project: "Peningkatan Recall Deteksi Pejalan Kaki pada Kondisi Minim Cahaya"
+
+criteria:
+  - id: "person_recall"
+    metric_name: "Recall Pejalan Kaki (IoU=0.5)"
+    class_id: 1
+    operator: ">="
+    target: 0.65
+    unit: "ratio"
+    rationale: >
+      False negative pada pejalan kaki berimplikasi keselamatan, sehingga recall
+      kelas person menjadi metrik utama proyek (bukan mAP agregat).
+
+  - id: "person_recall_gain_vs_b0"
+    metric_name: "Peningkatan Recall Person terhadap Baseline B0"
+    class_id: 1
+    operator: ">="
+    target: 0.10
+    unit: "ratio"
+    rationale: >
+      Target proposal: minimal +10 poin persentase recall person dibanding
+      baseline zero-shot, agar kontribusi metodologi terukur.
+
+  - id: "person_precision"
+    metric_name: "Precision Pejalan Kaki (IoU=0.5)"
+    class_id: 1
+    operator: ">="
+    target: 0.40
+    unit: "ratio"
+    rationale: >
+      Recall tinggi tanpa kendali precision akan menghasilkan alarm palsu
+      berlebihan, sehingga ada batas bawah yang tetap harus dipenuhi.
+
+  - id: "fps"
+    metric_name: "Throughput Inferensi CPU"
+    class_id: null
+    operator: ">="
+    target: 18.0
+    unit: "fps"
+    rationale: >
+      Diukur 18-19 FPS pada Ryzen 6c/12t 2.3GHz (latensi sekitar 52-55 ms).
+      Target realistis; bila ekspor ONNX/INT8 berhasil, target 25 FPS tercapai.
+
+  - id: "mAP50"
+    metric_name: "mAP@50 seluruh kelas"
+    class_id: null
+    operator: ">="
+    target: 0.70
+    unit: "ratio"
+    rationale: >
+      Standar internasional sebagai pelengkap metrik utama, agar hasil
+      tidak hanya optimal pada satu kelas minoritas.
+
+  - id: "latency_ms"
+    metric_name: "Latensi Inferensi Rata-rata"
+    class_id: null
+    operator: "<="
+    target: 60.0
+    unit: "ms"
+    rationale: >
+      Batas atas latensi agar pipeline tetap responsif pada skenario video
+      dengan kamera live streaming.
+
+stretch_targets:
+  person_recall: 0.75
+  fps: 25.0
+  latency_ms: 45.0
+  mAP50: 0.80

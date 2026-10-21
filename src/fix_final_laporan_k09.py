@@ -45,8 +45,16 @@ def fix_laporan() -> None:
     # 2. Fix Author Table (Table 0)
     author_table = doc.tables[0]
     author_table.alignment = WD_TABLE_ALIGNMENT.CENTER
-    author_table.cell(0, 0).text = "Krisantus Linardi\nKristofer Leonard"
-    author_table.cell(0, 1).text = "Kelompok 9 — Data & Preprocessing Lead\nKelompok 9 — Model & Deployment Lead"
+    author_table.cell(0, 0).text = (
+        "Krisantus Amka Ginting\nLinardi Halim\n"
+        "Kristofer Ryan Giggs Eka Saputra\nLeonard Franscois"
+    )
+    author_table.cell(0, 1).text = (
+        "Kelompok 9 — Data & Preprocessing Lead\n"
+        "Kelompok 9 — Documentation & Reporting Lead\n"
+        "Kelompok 9 — Model & Training Lead\n"
+        "Kelompok 9 — Demo & Deployment Lead"
+    )
 
     # 3. Main Paragraph Content Map with proper styles
     paragraph_data = [

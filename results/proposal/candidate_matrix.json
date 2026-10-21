@@ -1,0 +1,147 @@
+{
+  "metadata": {
+    "checkpoint": "CP01",
+    "course": "Visi Komputer (IF0PP006) - Semester Ganjil 2026/2027",
+    "group": "Kelompok 9 (Krisantus Amka Ginting, Linardi Halim, Kristofer Ryan Giggs Eka Saputra, Leonard Franscois)",
+    "document_date": "20 Oktober 2026",
+    "source_document": "Master_Reference_Proyek_CV.md",
+    "generator": "src/build_candidate_matrix.py"
+  },
+  "scoring": {
+    "min_score": 1,
+    "max_score": 5,
+    "weights_sum": 1.0,
+    "weights_sum_valid": true
+  },
+  "criteria": [
+    {
+      "id": "K1",
+      "name": "Kesesuaian tugas CV",
+      "weight": 0.2,
+      "description": "Seberapa dekat topik dengan inti mata kuliah Computer Vision (deteksi objek, segmentasi, tracking) dan relevansinya dengan permasalahan nyata di lapangan."
+    },
+    {
+      "id": "K2",
+      "name": "Ketersediaan dataset",
+      "weight": 0.2,
+      "description": "Ketersediaan dataset publik/legal yang sudah terunduh, teranotasi, dan siap pakai tanpa pengumpulan data tambahan."
+    },
+    {
+      "id": "K3",
+      "name": "Baseline yang realistis",
+      "weight": 0.15,
+      "description": "Keberadaan metode pembanding sederhana yang wajar sehingga kontribusi tiap eksperimen dapat dinilai terhadap sebuah acuan."
+    },
+    {
+      "id": "K4",
+      "name": "Kesesuaian metrik",
+      "weight": 0.15,
+      "description": "Ketersediaan metrik evaluasi standar dan tidak ambigu yang menjadi ukuran keberhasilan eksperimen."
+    },
+    {
+      "id": "K5",
+      "name": "Biaya komputasi",
+      "weight": 0.1,
+      "description": "Kebutuhan GPU/CPU dan waktu pelatihan, serta kecocokannya dengan ketersediaan GPU gratis dan laptop mahasiswa."
+    },
+    {
+      "id": "K6",
+      "name": "Kontribusi orisinal",
+      "weight": 0.1,
+      "description": "Ruang kebaruan yang dapat ditawarkan dari topik yang umumnya sudah banyak dikaji oleh peneliti lain."
+    },
+    {
+      "id": "K7",
+      "name": "Feasibility dalam 1 semester",
+      "weight": 0.1,
+      "description": "Kesesuaian ruang lingkup dengan jadwal UTS-UAS satu semester, termasuk waktu pengujian dan penyusunan laporan."
+    }
+  ],
+  "candidates": [
+    {
+      "id": "C1",
+      "title": "Deteksi Pejalan Kaki di Malam Hari (Night-time Pedestrian Detection)",
+      "task_type": "Object Detection",
+      "main_problem": "Model deteksi standar yang dilatih pada data siang hari mengalami penurunan drastis pada kondisi malam karena kontras rendah, derau sensor, dan silau lampu kendaraan sehingga pejalan kaki lolos terdeteksi (false negative fatal).",
+      "input": "Foto atau frame video kamera jalanan malam hari (JPEG/PNG/MP4), resolusi 640x640 piksel",
+      "output": "Bounding box pejalan kaki + label 'Pedestrian' + confidence score + FPS",
+      "data_availability": "Tersedia: Roboflow Low-light v2 (2.400 citra, 7.777 anotasi, lisensi CC BY 4.0), sudah diunduh dan diaudit pada src/audit_dataset.py",
+      "baseline_availability": "Tersedia: YOLOv8n pretrained COCO sebagai baseline zero-shot (B0) dan YOLOv8n fine-tuned sebagai pembanding (Exp-A)",
+      "metric_feasibility": "Sangat layak: mAP@50, mAP@50:95, Precision, Recall, dan FPS merupakan metrik standar deteksi objek",
+      "compute_cost": "Low",
+      "novelty_risk": "Sedang: topik deteksi malam sudah banyak dikaji, namun kontribusi spesifik augmentasi pencahayaan adaptif (CLAHE kanal-L vs Gamma) untuk Recall pejalan kaki masih relatif baru",
+      "rationale": "Dataset legal dan siap pakai, baseline melimpah dan metrik standar, biaya komputasi rendah, serta memiliki dampak keselamatan yang jelas sehingga mudah dikaitkan dengan ADAS.",
+      "scores": {
+        "K1": 5,
+        "K2": 5,
+        "K3": 5,
+        "K4": 5,
+        "K5": 4,
+        "K6": 4,
+        "K7": 5
+      },
+      "weighted_score": 4.8,
+      "percentage": 96.0,
+      "rank": 1
+    },
+    {
+      "id": "C2",
+      "title": "Segmentasi Kerusakan Bodi Mobil (Goresan & Penyok)",
+      "task_type": "Semantic Segmentation",
+      "main_problem": "Penilaian kerusakan mobil untuk klaim asuransi masih dilakukan manual, subjektif, dan lambat sehingga menimbulkan ketidaksepakatan antar penilai yang tinggi.",
+      "input": "Foto bodi kendaraan rusak (goresan, penyok, cat terkelupas)",
+      "output": "Mask piksel area kerusakan + persentase luas kerusakan per citra",
+      "data_availability": "Belum tersedia: tidak ada dataset anotasi mask yang siap pakai; butuh pengumpulan citra dan pelabelan piksel secara manual",
+      "baseline_availability": "Ada secara teori (U-Net/segmentasi semantik), namun harus dibangun dari nol karena label mask belum tersedia",
+      "metric_feasibility": "Cukup: mIoU dan F1 per kelas tersedia, tetapi metrik bisnis 'persentase luas kerusakan' memerlukan validasi ulang",
+      "compute_cost": "Medium",
+      "novelty_risk": "Sedang: banyak riset segmentasi kerusakan kendaraan yang sudah publik, sehingga temuan orisinal sulit dibedakan",
+      "rationale": "Nilai bisnisnya tinggi, tetapi biaya pengumpulan dan pelabelan data berada di luar jangkauan satu semester dan ruang lingkup menjadi terlalu luas untuk eksperimen terkontrol yang bersih.",
+      "scores": {
+        "K1": 4,
+        "K2": 2,
+        "K3": 3,
+        "K4": 4,
+        "K5": 3,
+        "K6": 3,
+        "K7": 2
+      },
+      "weighted_score": 3.05,
+      "percentage": 61.0,
+      "rank": 2
+    },
+    {
+      "id": "C3",
+      "title": "Pelacakan Multi-Objek Bawah Air (Multi-Object Tracking saat Oklusi)",
+      "task_type": "Multi-Object Tracking (MOT)",
+      "main_problem": "Sistem pelacakan sering keliru menukar identitas objek (ID-Switch) ketika objek saling menutupi di dalam air dengan visibilitas yang sangat buruk.",
+      "input": "Klip video pendek rekaman bawah air (multi-objek, oklusi tinggi)",
+      "output": "ID unik konsisten per objek + garis trajektori + laporan ID-Switch",
+      "data_availability": "Belum tersedia: dataset MOT bawah air yang legal dan siap pakai tidak ada di repositori proyek; perekaman sendiri berisiko lisensi",
+      "baseline_availability": "Ada (SORT dan ByteTrack), namun harus digabungkan dengan detektor sehingga pipeline menjadi dua tahap",
+      "metric_feasibility": "Cukup: IDF1, HOTA, dan MOTA tersedia, namun metrik ini kurang khas untuk argumen keselamatan yang dituju proyek",
+      "compute_cost": "High",
+      "novelty_risk": "Tinggi: topik pelacakan bawah air sudah memiliki banyak karya terbit dengan dataset video sendiri, sehingga pembedaan kontribusi menjadi sulit",
+      "rationale": "Butuh koleksi video, pemrosesan frame yang berat, dan metrik yang kurang terhubung dengan rumusan masalah keselamatan, sehingga merupakan pilihan paling berisiko dari sisi kelayakan satu semester.",
+      "scores": {
+        "K1": 4,
+        "K2": 1,
+        "K3": 3,
+        "K4": 4,
+        "K5": 2,
+        "K6": 3,
+        "K7": 2
+      },
+      "weighted_score": 2.75,
+      "percentage": 55.0,
+      "rank": 3
+    }
+  ],
+  "decision": {
+    "selected_candidate_id": "C1",
+    "selected_title": "Deteksi Pejalan Kaki di Malam Hari (Night-time Pedestrian Detection)",
+    "weighted_score": 4.8,
+    "percentage": 96.0,
+    "margin_over_runner_up": 1.75
+  }
+}

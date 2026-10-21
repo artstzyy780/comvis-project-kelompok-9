@@ -1,7 +1,7 @@
-# 📋 Master Reference — Proyek Visi Komputer Kelompok 6
+# 📋 Master Reference — Proyek Visi Komputer Kelompok 9
 
 > Dokumen ini merangkum seluruh keputusan, arsitektur, rubrik, dan poin penting dari diskusi proyek.
-> **Terakhir diperbarui:** 29 September 2026
+> **Terakhir diperbarui:** 20 Oktober 2026
 
 ---
 
@@ -9,9 +9,9 @@
 
 | Info | Detail |
 |---|---|
-| **Mata Kuliah** | Visi Komputer (Computer Vision) |
-| **Kelompok** | 6 |
-| **Anggota** | Krisantus Linardi & Kristofer Leonard |
+| **Mata Kuliah** | Visi Komputer (Computer Vision) — IF0PP006 |
+| **Kelompok** | 9 |
+| **Anggota** | Krisantus Amka Ginting (Data & Preprocessing) · Linardi Halim (Documentation & Reporting) · Kristofer Ryan Giggs Eka Saputra (Model & Training) · Leonard Franscois (Demo & Deployment) |
 | **Topik Terpilih** | Deteksi Pejalan Kaki di Malam Hari / Minim Cahaya |
 | **Judul Sementara** | *Peningkatan Recall Deteksi Pejalan Kaki pada Kondisi Minim Cahaya Menggunakan YOLOv8 dan Augmentasi Pencahayaan Adaptif* |
 | **Nama File Pendek** | `DeteksiPedestrianLowLight` |

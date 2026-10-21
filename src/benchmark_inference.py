@@ -469,7 +469,7 @@ def generate_markdown_report(
         "# ⏱️ Comprehensive Local Hardware Inference & Throughput Benchmark Report",
         "",
         "- **Mata Kuliah:** Visi Komputer (IF0PP006) — Semester Ganjil 2026/2027",
-        "- **Kelompok:** 9 (Krisantus Linardi & Kristofer Leonard)",
+        "- **Kelompok:** 9 (Krisantus Amka Ginting, Linardi Halim, Kristofer Ryan Giggs Eka Saputra, Leonard Franscois)",
         "- **Topik:** Peningkatan Recall Deteksi Pejalan Kaki pada Kondisi Minim Cahaya Menggunakan YOLOv8 dan Augmentasi Pencahayaan Adaptif",
         "- **Tanggal Pengujian:** 18 Oktober 2026",
         "",

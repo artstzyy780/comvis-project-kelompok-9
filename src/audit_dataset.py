@@ -2,16 +2,25 @@
 
 This script parses YOLOv8 annotations, validates image-label correspondence,
 calculates class distributions and bounding box statistics across splits,
-and generates sample visual verification images for academic reporting (CP03).
+analyses dataset bias (class balance, object scale, scene brightness),
+detects scene-level data leakage between splits, and generates sample visual
+verification images for academic reporting (CP03).
 """
 
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
+
+from config import PERSON_CLASS_ID, SplitLeakageReport
+from scene_utils import (
+    collect_images,
+    detect_cross_split_leakage,
+    find_visual_near_duplicates,
+)
 
 
 # Constants
@@ -163,6 +172,138 @@ def audit_split(split_name: str, base_dir: Path) -> Tuple[SplitAuditSummary, Lis
     return summary, parsed_samples
 
 
+@dataclass
+class BiasAnalysis:
+    """Bias statistics of a split or of the whole dataset (CP03).
+
+    Attributes:
+        box_area_by_class: Median normalised box area per class.
+        box_height_by_class: Median normalised box height per class.
+        person_box_heights: Normalised heights of every pedestrian box.
+        person_height_percentiles: Height percentiles (p10, p50, p90) of pedestrians.
+        mean_luminance: Mean V-channel luminance of the sampled images.
+        small_person_ratio: Share of pedestrian boxes shorter than 10% of the image.
+    """
+
+    box_area_by_class: Dict[int, float]
+    box_height_by_class: Dict[int, float]
+    person_box_heights: List[float]
+    person_height_percentiles: Dict[str, float]
+    mean_luminance: float
+    small_person_ratio: float
+
+
+def analyze_bias(
+    samples: List[Tuple[Path, List[BoundingBox]]],
+    max_images: int = 300,
+) -> BiasAnalysis:
+    """Analyse object scale and scene brightness to expose dataset bias.
+
+    The dataset consists of 640x640 crops of traffic scenes, so pedestrians
+    appear comparatively large in frame. The distribution is therefore reported
+    with percentiles instead of a single threshold, and the share of pedestrian
+    boxes shorter than ten percent of the image height quantifies how many
+    small (distant) pedestrians the detector still has to handle.
+
+    Args:
+        samples: List of (image_path, boxes) tuples.
+        max_images: Maximum number of images sampled for the brightness estimate.
+
+    Returns:
+        A BiasAnalysis instance.
+    """
+    areas: Dict[int, List[float]] = {0: [], 1: []}
+    heights: Dict[int, List[float]] = {0: [], 1: []}
+    luminances: List[float] = []
+
+    for index, (image_path, boxes) in enumerate(samples):
+        if index < max_images:
+            image: np.ndarray = cv2.imread(str(image_path))
+            if image is not None:
+                luminance: float = float(np.mean(image[:, :, 2]))
+                luminances.append(luminance)
+        for box in boxes:
+            areas[box.class_id].append(box.width * box.height)
+            heights[box.class_id].append(box.height)
+
+    median_area: Dict[int, float] = {
+        cls: (float(np.median(values)) if values else 0.0) for cls, values in areas.items()
+    }
+    median_height: Dict[int, float] = {
+        cls: (float(np.median(values)) if values else 0.0) for cls, values in heights.items()
+    }
+    person_heights: List[float] = heights.get(PERSON_CLASS_ID, [])
+    small_ratio: float = (
+        float(np.mean([1.0 if height < 0.10 else 0.0 for height in person_heights]))
+        if person_heights
+        else 0.0
+    )
+    percentiles: Dict[str, float] = {}
+    if person_heights:
+        percentiles = {
+            "p10": round(float(np.percentile(person_heights, 10)), 3),
+            "p50": round(float(np.percentile(person_heights, 50)), 3),
+            "p90": round(float(np.percentile(person_heights, 90)), 3),
+        }
+
+    return BiasAnalysis(
+        box_area_by_class=median_area,
+        box_height_by_class=median_height,
+        person_box_heights=person_heights,
+        person_height_percentiles=percentiles,
+        mean_luminance=round(float(np.mean(luminances)), 2) if luminances else 0.0,
+        small_person_ratio=round(small_ratio, 4),
+    )
+
+
+def analyze_leakage(dataset_root: Path = DATASET_ROOT_DIR) -> SplitLeakageReport:
+    """Detect source scenes that appear in more than one split.
+
+    Args:
+        dataset_root: Root of the dataset to inspect.
+
+    Returns:
+        The leakage report produced by :mod:`scene_utils`.
+    """
+    return detect_cross_split_leakage(dataset_root)
+
+
+def find_cross_split_near_duplicates(
+    dataset_root: Path = DATASET_ROOT_DIR,
+    max_distance: int = 5,
+    limit: int = 20,
+    max_images: int = 800,
+) -> List[Tuple[Path, Path, int]]:
+    """Find visually near-duplicate pairs that span two splits.
+
+    The perceptual hash search is independent of the file naming convention,
+    therefore it can reveal duplicates that :func:`extract_scene_id` misses.
+
+    Args:
+        dataset_root: Root of the dataset to inspect.
+        max_distance: Maximum Hamming distance still considered a duplicate.
+        limit: Maximum number of pairs returned.
+        max_images: Maximum number of images hashed (the search is O(n^2)).
+
+    Returns:
+        List of (path_a, path_b, distance) triples.
+    """
+    images: List[Path] = []
+    for split in SPLITS:
+        images.extend(collect_images(dataset_root, split))
+
+    if len(images) > max_images:
+        step: float = len(images) / max_images
+        images = [images[int(index * step)] for index in range(max_images)]
+
+    pairs: List[Tuple[Path, Path, int]] = find_visual_near_duplicates(
+        images, max_distance=max_distance
+    )
+    return [
+        pair for pair in pairs if pair[0].parent.parent.name != pair[1].parent.parent.name
+    ][:limit]
+
+
 def draw_bounding_boxes(image: np.ndarray, boxes: List[BoundingBox]) -> np.ndarray:
     """Draw bounding boxes and class labels onto an image.
 
@@ -265,12 +406,21 @@ def generate_sample_verification_grid(
     plt.close()
 
 
-def generate_markdown_report(summaries: List[SplitAuditSummary], report_path: Path) -> None:
+def generate_markdown_report(
+    summaries: List[SplitAuditSummary],
+    report_path: Path,
+    leakage: Optional[SplitLeakageReport] = None,
+    bias: Optional[BiasAnalysis] = None,
+    visual_duplicates: Optional[List[Tuple[Path, Path, int]]] = None,
+) -> None:
     """Generate a structured Markdown audit report suitable for UTS Proposal.
 
     Args:
         summaries: List of SplitAuditSummary for all splits.
         report_path: Path where the Markdown report will be saved.
+        leakage: Optional scene-level leakage report.
+        bias: Optional bias analysis.
+        visual_duplicates: Optional perceptual-hash near-duplicate pairs.
     """
     report_path.parent.mkdir(parents=True, exist_ok=True)
     total_imgs = sum(s.total_images for s in summaries)
@@ -307,10 +457,99 @@ def generate_markdown_report(summaries: List[SplitAuditSummary], report_path: Pa
 
     content.extend([
         "",
-        "## 3. Catatan Audit Kelayakan Akademik (Rubrik Dosen)",
+        "## 3. Analisis Bias Dataset",
+        "",
+    ])
+
+    if bias is not None:
+        percentiles: Dict[str, float] = bias.person_height_percentiles
+        content.extend([
+            f"- **Kecerahan scene:** rata-rata kanal V = `{bias.mean_luminance}` "
+            "(mendukung pengujian pada kondisi minim cahaya).",
+            f"- **Skala objek median (luas ternormalisasi):** "
+            f"`Vehicle` {bias.box_area_by_class.get(0, 0.0):.5f} | "
+            f"`person` {bias.box_area_by_class.get(1, 0.0):.5f}.",
+            f"- **Tinggi kotak median:** `Vehicle` {bias.box_height_by_class.get(0, 0.0):.3f} | "
+            f"`person` {bias.box_height_by_class.get(1, 0.0):.3f} (fraksi tinggi citra).",
+            f"- **Distribusi tinggi pejalan kaki:** p10 {percentiles.get('p10', 0.0):.3f} | "
+            f"p50 {percentiles.get('p50', 0.0):.3f} | p90 {percentiles.get('p90', 0.0):.3f}.",
+            f"- **Pejalan kaki kecil (< 10% tinggi citra):** {bias.small_person_ratio * 100:.1f}% "
+            "dari seluruh kotak pejalan kaki. Karena dataset berupa potongan 640x640, "
+            "pejalan kaki relatif besar dalam frame; kasus sulit berada pada ekor bawah "
+            "distribusi (pejalan kaki jauh/terhalang), bukan pada objek sekecil(<5%) citra.",
+        ])
+    else:
+        content.append("_(analisis bias tidak tersedia)_")
+
+    content.extend([
+        "",
+        "## 4. Deteksi Data Leakage (Level Scene)",
+        "",
+    ])
+
+    if leakage is not None:
+        content.extend([
+            f"- **Total scene sumber unik:** {leakage.total_scenes}",
+            f"- **Scene yang muncul pada >1 split:** {len(leakage.overlapping_scenes)}",
+            "",
+            "| Split | File total | File dari scene bocor | Persentase |",
+            "|:---|:---:|:---:|:---:|",
+        ])
+        for split in SPLITS:
+            total: int = leakage.per_split_total.get(split, 0)
+            affected: int = leakage.per_split_overlap_files.get(split, 0)
+            share: float = (affected / total * 100) if total else 0.0
+            content.append(f"| **{split}** | {total:,} | {affected:,} | {share:.1f}% |")
+
+        if leakage.has_leakage:
+            content.extend([
+                "",
+                "> **Peringatan:** Eksport Roboflow menempatkan augmented copy dari satu scene "
+                "ke beberapa split sekaligus, sehingga split uji tidak independen pada level "
+                "scene. Bangun ulang split dengan `src/rebuild_split_dedup.py` "
+                "(grouped by scene) sebelum-report final.",
+            ])
+        else:
+            content.extend([
+                "",
+                "> **Status:** Tidak ditemukan scene yang bocor antar split. "
+                "Protokol anti-leakage terpenuhi pada level scene.",
+            ])
+
+        if visual_duplicates is not None:
+            content.extend([
+                "",
+                f"- **Near-duplicate visual lintas split (dHash, Hamming ≤ 5):** "
+                f"{len(visual_duplicates)} pasangan.",
+            ])
+            for path_a, path_b, distance in visual_duplicates[:5]:
+                content.append(
+                    f"  - `{path_a.parent.parent.name}/{path_a.name}` ↔ "
+                    f"`{path_b.parent.parent.name}/{path_b.name}` (jarak {distance})"
+                )
+    else:
+        content.append("_(analisis leakage tidak tersedia)_")
+
+    content.extend([
+        "",
+        "## 5. Rencana Split",
+        "",
+        "1. **Unit split adalah *source scene***, bukan file: seluruh augmented copy dari satu "
+        "scene selalu berada pada split yang sama.",
+        "2. **Stratifikasi** berdasarkan keberadaan pejalan kaki agar kelas minoritas "
+        "tersebar merata pada train/valid/test.",
+        "3. **Seed tetap (42)** agar pembagian reproducible.",
+        "4. **Prasyarat augmentasi pencahayaan** (CLAHE/Gamma) hanya boleh diterapkan pada split "
+        "latih; validasi dan uji tetap murni.",
+        "5. **Evaluasi akhir** dilakukan sekali pada split uji yang belum pernah disentuh "
+        "sebelum pembekuan model.",
+        "",
+        "## 6. Catatan Audit Kelayakan Akademik (Rubrik Dosen)",
         "",
         "1. **Integritas Anotasi:** Setiap file gambar memiliki pasangan label `.txt` yang sesuai tanpa ada yang hilang atau korup.",
-        "2. **Pencegahan Data Leakage:** Split data sudah dipisah di level folder sebelum eksperimen dan pra-pemrosesan.",
+        "2. **Pencegahan Data Leakage:** Pra-pemrosesan hanya diterapkan pada data latih. "
+        "Pemeriksaan tambahan pada level scene menemukan duplikasi lintas split pada "
+        "eksport bawaan (lihat bagian 4) dan diselesaikan dengan split terkelompok.",
         "3. **Tantangan Class Imbalance:** Objek `person` jauh lebih sedikit dibanding `Vehicle`. Hal ini memvalidasi urgensi penggunaan metrik **Recall** sebagai metrik prioritas utama agar pejalan kaki tidak terlewatkan (*false negative minim*).",
         "4. **Visual Verifikasi:** Sampel anotasi tersimpan di file `results/audit/sample_annotations.png`.",
     ])
@@ -333,6 +572,22 @@ def main() -> None:
         print(f"[{split.upper()}] {summary.total_images} gambar, {summary.total_boxes} box "
               f"(Vehicle: {summary.class_counts.get(0, 0)}, Person: {summary.class_counts.get(1, 0)})")
 
+    # Analisis bias: skala objek dan kecerahan scene
+    print("Menganalisis bias dataset (skala objek & kecerahan)...")
+    bias: BiasAnalysis = analyze_bias(all_train_samples)
+
+    # Deteksi kebocoran data pada level source scene
+    print("Mendeteksi kebocoran data antar split...")
+    leakage: SplitLeakageReport = analyze_leakage(DATASET_ROOT_DIR)
+    print(f"  Scene unik: {leakage.total_scenes} | Scene bocor: {len(leakage.overlapping_scenes)}")
+
+    # Pemeriksaan tambahan berbasis perceptual hash (independen dari penamaan berkas)
+    print("Memeriksa near-duplicate visual antar split (dHash)...")
+    visual_duplicates: List[Tuple[Path, Path, int]] = find_cross_split_near_duplicates(
+        DATASET_ROOT_DIR
+    )
+    print(f"  Pasangan near-duplicate lintas split: {len(visual_duplicates)}")
+
     # Generate sample visualization grid
     grid_output_path = OUTPUT_DIR / "sample_annotations.png"
     print(f"Menghasilkan visualisasi sampel ke {grid_output_path}...")
@@ -341,7 +596,13 @@ def main() -> None:
     # Generate Markdown audit report
     report_output_path = OUTPUT_DIR / "audit_report.md"
     print(f"Menyimpan laporan audit ke {report_output_path}...")
-    generate_markdown_report(summaries, report_output_path)
+    generate_markdown_report(
+        summaries,
+        report_output_path,
+        leakage=leakage,
+        bias=bias,
+        visual_duplicates=visual_duplicates,
+    )
 
     print("Audit dataset selesai dengan sukses!")
 

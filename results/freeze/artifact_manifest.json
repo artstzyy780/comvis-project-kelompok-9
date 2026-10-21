@@ -1,0 +1,63 @@
+{
+  "frozen_at": "2026-10-20T14:39:04.905022+00:00",
+  "git_commit": "4869ddd",
+  "artifact_count": 8,
+  "artifacts": [
+    {
+      "relative_path": "K09_DeteksiPedestrianLowLight_Proposal_v02.pdf",
+      "purpose": "CP06 - Proposal UTS (versi beku)",
+      "exists": true,
+      "size_bytes": 135904,
+      "sha256": "30201ac7b073ee89ce912f4042bb02a1ee33bf56214b5f9d432a130239f77fac"
+    },
+    {
+      "relative_path": "docs/proposal/K09_Sidang_Proposal_DeteksiPedestrianLowLight.pptx",
+      "purpose": "CP06 - Slide Sidang UTS",
+      "exists": true,
+      "size_bytes": 3509233,
+      "sha256": "6f507c6022b196b72ce6376aa1e103c6c646dbb21c8d74023a4148c7be702e69"
+    },
+    {
+      "relative_path": "docs/proposal/Naskah_Presentasi_Sidang_Proposal_K09.md",
+      "purpose": "CP06 - Naskah presentasi",
+      "exists": true,
+      "size_bytes": 16888,
+      "sha256": "d37bf1cecbf0140311f1dbd37765902e533b8c2424dbf948f9aa96a184fcc8fa"
+    },
+    {
+      "relative_path": "results/audit/audit_report.md",
+      "purpose": "CP03 - Laporan audit dataset",
+      "exists": true,
+      "size_bytes": 4181,
+      "sha256": "9a8870f1ba9f820e50c2ed100b63422918fc75e13affd4f4a4d1856931131332"
+    },
+    {
+      "relative_path": "results/audit/dedup_split_report.md",
+      "purpose": "CP07 - Split bebas-leakage (scene level)",
+      "exists": true,
+      "size_bytes": 2250,
+      "sha256": "630724084ef7bfd128c58fd4b7e1db096ed300bdf8e3fc39852194783cce2b61"
+    },
+    {
+      "relative_path": "results/experiments/unified_results.md",
+      "purpose": "CP10 - Tabel hasil terpadu (satu split)",
+      "exists": false,
+      "size_bytes": 0,
+      "sha256": ""
+    },
+    {
+      "relative_path": "results/experiments/benchmark_latency_report.md",
+      "purpose": "CP12 - Benchmark latensi & FPS",
+      "exists": true,
+      "size_bytes": 3660,
+      "sha256": "bd8c2716d1e15f3efe2c99fffdba67aec58c57ddb39a8b83cd720e0369277bfb"
+    },
+    {
+      "relative_path": "README.md",
+      "purpose": "CP13 - README final",
+      "exists": true,
+      "size_bytes": 11141,
+      "sha256": "14891fe70a4529317aaed96822a10c9fe3d9af4124bd3ac31d8e698efe03abf1"
+    }
+  ]
+}

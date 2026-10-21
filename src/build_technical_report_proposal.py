@@ -13,7 +13,10 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_TABLE_ALIGNMENT, WD_ALIGN_VERTICAL
 from docx.oxml import OxmlElement, parse_xml
 from docx.oxml.ns import qn, nsdecls
-from playwright.sync_api import sync_playwright
+try:
+    from playwright.sync_api import sync_playwright
+except ImportError:  # The PDF step is optional; DOCX and Markdown still build.
+    sync_playwright = None  # type: ignore[assignment]
 
 # Constants for file paths
 TEMPLATE_DOCX: Final[Path] = Path("Technical_Report_Template.docx")
@@ -70,8 +73,16 @@ def build_docx_report() -> None:
     cell_names = author_table.cell(0, 0)
     cell_ids = author_table.cell(0, 1)
 
-    cell_names.text = "Krisantus Linardi\nKristofer Leonard"
-    cell_ids.text = "Kelompok 9 — Data & Preprocessing Lead\nKelompok 9 — Model & Deployment Lead"
+    cell_names.text = (
+        "Krisantus Amka Ginting\nLinardi Halim\n"
+        "Kristofer Ryan Giggs Eka Saputra\nLeonard Franscois"
+    )
+    cell_ids.text = (
+        "Kelompok 9 — Data & Preprocessing Lead\n"
+        "Kelompok 9 — Documentation & Reporting Lead\n"
+        "Kelompok 9 — Model & Training Lead\n"
+        "Kelompok 9 — Demo & Deployment Lead"
+    )
 
     # 3. Main Text Paragraphs Mapping
     paragraph_updates = {
@@ -304,8 +315,10 @@ def build_md_report() -> None:
 
 | Nama Mahasiswa | Peran & Tanggung Jawab Utama |
 |---|---|
-| **Krisantus Linardi** | Kelompok 9 — Data & Preprocessing Lead |
-| **Kristofer Leonard** | Kelompok 9 — Model & Deployment Lead |
+| **Krisantus Amka Ginting** | Kelompok 9 — Data & Preprocessing Lead |
+| **Linardi Halim** | Kelompok 9 — Documentation & Reporting Lead |
+| **Kristofer Ryan Giggs Eka Saputra** | Kelompok 9 — Model & Training Lead |
+| **Leonard Franscois** | Kelompok 9 — Demo & Deployment Lead |
 
 ---
 
@@ -402,6 +415,15 @@ Proposal teknis ini menetapkan metodologi terkontrol yang kokoh untuk meningkatk
 
 
 def build_pdf_report() -> None:
+    """Render the PDF deliverable using a headless browser.
+
+    Raises:
+        ImportError: When Playwright is not installed in the environment.
+    """
+    if sync_playwright is None:
+        raise ImportError(
+            "Playwright belum terpasang. Pasang dengan: pip install playwright && playwright install msedge"
+        )
     """Renders HTML template into IEEE 2-column styled PDF using Playwright."""
     html_content = """<!DOCTYPE html>
 <html lang="en">
@@ -560,8 +582,10 @@ def build_pdf_report() -> None:
     
     <table class="author-table">
         <tr>
-            <td><strong>Krisantus Linardi</strong><br>Kelompok 9 — Data & Preprocessing Lead</td>
-            <td><strong>Kristofer Leonard</strong><br>Kelompok 9 — Model & Deployment Lead</td>
+            <td><strong>Krisantus Amka Ginting</strong><br>Kelompok 9 — Data &amp; Preprocessing Lead</td>
+            <td><strong>Linardi Halim</strong><br>Kelompok 9 — Documentation &amp; Reporting Lead</td>
+            <td><strong>Kristofer Ryan Giggs Eka Saputra</strong><br>Kelompok 9 — Model &amp; Training Lead</td>
+            <td><strong>Leonard Franscois</strong><br>Kelompok 9 — Demo &amp; Deployment Lead</td>
         </tr>
     </table>
 </div>
@@ -771,7 +795,7 @@ tags: [proposal, technical-report, uts, computer-vision, yolov8, clahe]
 > **Dokumen Resmi:** `K09_DeteksiPedestrianLowLight_Proposal_v02`  
 > **Format:** IEEE 2-Column Technical Report (`Technical_Report_Template.docx`)  
 > **Mata Kuliah:** Visi Komputer (IF0PP006) — Semester Ganjil 2026/2027  
-> **Kelompok:** 9 (Krisantus Linardi & Kristofer Leonard)  
+> **Kelompok:** 9 (Krisantus Amka Ginting, Linardi Halim, Kristofer Ryan Giggs Eka Saputra, Leonard Franscois)  
 > **Tautan File Repositori:** [[K09_DeteksiPedestrianLowLight_Proposal_v02.md]]
 
 ---
@@ -793,14 +817,27 @@ Proposal UTS telah diperbarui secara penuh mengikuti **Technical Report Template
 ---
 *(Dokumen ini terintegrasi penuh dengan repositori di `K09_DeteksiPedestrianLowLight_Proposal_v02.docx` dan `K09_DeteksiPedestrianLowLight_Proposal_v02.pdf`)*
 """
+    if not OBSIDIAN_NOTE.parent.exists():
+        print(f"[WARNING] Vault Obsidian tidak ditemukan, catatan sinkronisasi dilewati: {OBSIDIAN_NOTE.parent}")
+        return
     OBSIDIAN_NOTE.write_text(obsidian_text, encoding="utf-8")
     print(f"[OK] Obsidian sync note written to:\n  - {OBSIDIAN_NOTE}")
 
 
 def main() -> None:
+    """Build the DOCX and Markdown artefacts, and the PDF when Playwright exists.
+
+    The PDF step needs Playwright with a Chromium/Edge browser, which is not
+    available on every machine. When the dependency is missing the script still
+    produces the DOCX and Markdown deliverables and reports what was skipped.
+    """
     build_docx_report()
     build_md_report()
-    build_pdf_report()
+    try:
+        build_pdf_report()
+    except ImportError as error:
+        print(f"[WARNING] PDF tidak dibuat (Playwright belum terpasang): {error}")
+        print("[INFO] Pasang dengan: pip install playwright && playwright install msedge")
     sync_obsidian()
 
 

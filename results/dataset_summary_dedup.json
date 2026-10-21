@@ -1,0 +1,73 @@
+{
+  "dataset_root": "dataset_dedup",
+  "num_classes": 2,
+  "class_names": {
+    "0": "Vehicle",
+    "1": "person"
+  },
+  "splits": {
+    "train": {
+      "split": "train",
+      "image_count": 1643,
+      "label_count": 1643,
+      "total_boxes": 5336,
+      "class_counts": {
+        "0": 4687,
+        "1": 649
+      },
+      "images_with_person": 336,
+      "empty_labels": 0,
+      "missing_labels": 0,
+      "orphan_labels": 0,
+      "invalid_coordinates": 0,
+      "invalid_classes": 0,
+      "unreadable_images": 0,
+      "ok": true,
+      "issues": []
+    },
+    "valid": {
+      "split": "valid",
+      "image_count": 384,
+      "label_count": 384,
+      "total_boxes": 1368,
+      "class_counts": {
+        "0": 1190,
+        "1": 178
+      },
+      "images_with_person": 73,
+      "empty_labels": 0,
+      "missing_labels": 0,
+      "orphan_labels": 0,
+      "invalid_coordinates": 0,
+      "invalid_classes": 0,
+      "unreadable_images": 0,
+      "ok": true,
+      "issues": []
+    },
+    "test": {
+      "split": "test",
+      "image_count": 373,
+      "label_count": 373,
+      "total_boxes": 1073,
+      "class_counts": {
+        "0": 994,
+        "1": 79
+      },
+      "images_with_person": 57,
+      "empty_labels": 4,
+      "missing_labels": 0,
+      "orphan_labels": 0,
+      "invalid_coordinates": 0,
+      "invalid_classes": 0,
+      "unreadable_images": 0,
+      "ok": true,
+      "issues": []
+    }
+  },
+  "totals": {
+    "images": 2400,
+    "boxes": 7777,
+    "person_boxes": 906,
+    "vehicle_boxes": 6871
+  }
+}

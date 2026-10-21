@@ -1,0 +1,73 @@
+{
+  "dataset_root": "C:\\Users\\amkag\\.vscode\\comvis tugas\\Deteksi project\\comvis-project-kelompok-9\\dataset",
+  "num_classes": 2,
+  "class_names": {
+    "0": "Vehicle",
+    "1": "person"
+  },
+  "splits": {
+    "train": {
+      "split": "train",
+      "image_count": 2100,
+      "label_count": 2100,
+      "total_boxes": 6816,
+      "class_counts": {
+        "0": 6018,
+        "1": 798
+      },
+      "images_with_person": 413,
+      "empty_labels": 4,
+      "missing_labels": 0,
+      "orphan_labels": 0,
+      "invalid_coordinates": 0,
+      "invalid_classes": 0,
+      "unreadable_images": 0,
+      "ok": true,
+      "issues": []
+    },
+    "valid": {
+      "split": "valid",
+      "image_count": 200,
+      "label_count": 200,
+      "total_boxes": 650,
+      "class_counts": {
+        "0": 581,
+        "1": 69
+      },
+      "images_with_person": 35,
+      "empty_labels": 0,
+      "missing_labels": 0,
+      "orphan_labels": 0,
+      "invalid_coordinates": 0,
+      "invalid_classes": 0,
+      "unreadable_images": 0,
+      "ok": true,
+      "issues": []
+    },
+    "test": {
+      "split": "test",
+      "image_count": 100,
+      "label_count": 100,
+      "total_boxes": 311,
+      "class_counts": {
+        "0": 272,
+        "1": 39
+      },
+      "images_with_person": 18,
+      "empty_labels": 0,
+      "missing_labels": 0,
+      "orphan_labels": 0,
+      "invalid_coordinates": 0,
+      "invalid_classes": 0,
+      "unreadable_images": 0,
+      "ok": true,
+      "issues": []
+    }
+  },
+  "totals": {
+    "images": 2400,
+    "boxes": 7777,
+    "person_boxes": 906,
+    "vehicle_boxes": 6871
+  }
+}

@@ -344,7 +344,7 @@ def build_slide_1_cover(prs: Presentation) -> None:
 
     # Member 1
     p_m1 = tf_tcontent.add_paragraph()
-    p_m1.text = "•  Krisantus Linardi  —  Data & Preprocessing Lead"
+    p_m1.text = "•  Krisantus Amka Ginting  —  Data & Preprocessing Lead"
     p_m1.font.name = FONT_FAMILY_BODY
     p_m1.font.size = Pt(12)
     p_m1.font.bold = True
@@ -358,16 +358,42 @@ def build_slide_1_cover(prs: Presentation) -> None:
 
     # Member 2
     p_m2 = tf_tcontent.add_paragraph()
-    p_m2.text = "•  Kristofer Leonard  —  Model & Deployment Lead"
+    p_m2.text = "•  Linardi Halim  —  Documentation & Reporting Lead"
     p_m2.font.name = FONT_FAMILY_BODY
     p_m2.font.size = Pt(12)
     p_m2.font.bold = True
     p_m2.font.color.rgb = COLOR_TEXT_WHITE
     p_m2_desc = tf_tcontent.add_paragraph()
-    p_m2_desc.text = "    Pelatihan model YOLOv8-Nano, eksperimen terkontrol komparatif, evaluasi Recall, dan prototype Streamlit."
+    p_m2_desc.text = "    Penyusunan proposal dan laporan teknis, naskah presentasi, serta rekap tracker dan logbook."
     p_m2_desc.font.name = FONT_FAMILY_BODY
     p_m2_desc.font.size = Pt(10)
     p_m2_desc.font.color.rgb = COLOR_TEXT_MUTED
+
+    # Member 3
+    p_m3 = tf_tcontent.add_paragraph()
+    p_m3.text = "•  Kristofer Ryan Giggs Eka Saputra  —  Model & Training Lead"
+    p_m3.font.name = FONT_FAMILY_BODY
+    p_m3.font.size = Pt(12)
+    p_m3.font.bold = True
+    p_m3.font.color.rgb = COLOR_TEXT_WHITE
+    p_m3_desc = tf_tcontent.add_paragraph()
+    p_m3_desc.text = "    Pelatihan model YOLOv8-Nano, eksperimen terkontrol komparatif, evaluasi Recall, dan benchmark FPS."
+    p_m3_desc.font.name = FONT_FAMILY_BODY
+    p_m3_desc.font.size = Pt(10)
+    p_m3_desc.font.color.rgb = COLOR_TEXT_MUTED
+
+    # Member 4
+    p_m4 = tf_tcontent.add_paragraph()
+    p_m4.text = "•  Leonard Franscois  —  Demo & Deployment Lead"
+    p_m4.font.name = FONT_FAMILY_BODY
+    p_m4.font.size = Pt(12)
+    p_m4.font.bold = True
+    p_m4.font.color.rgb = COLOR_TEXT_WHITE
+    p_m4_desc = tf_tcontent.add_paragraph()
+    p_m4_desc.text = "    Prototype demo inferensi, dokumentasi repository, dan organisational video cadangan."
+    p_m4_desc.font.name = FONT_FAMILY_BODY
+    p_m4_desc.font.size = Pt(10)
+    p_m4_desc.font.color.rgb = COLOR_TEXT_MUTED
 
 
 def build_slide_2_urgency(prs: Presentation) -> None:
@@ -782,7 +808,8 @@ def build_slide_6_data_readiness(prs: Presentation) -> None:
     img_card.line.color.rgb = COLOR_CARD_BORDER
 
     # Insert Image if exists
-    img_path = r"C:\Project Github\comvis project\results\audit\sample_annotations.png"
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    img_path = os.path.join(project_root, "results", "audit", "sample_annotations.png")
     if os.path.exists(img_path):
         slide.shapes.add_picture(
             img_path,
@@ -985,13 +1012,13 @@ def build_slide_9_execution_plan(prs: Presentation) -> None:
         top=1.95,
         width=card_w,
         height=card_h,
-        title="Krisantus Linardi",
+        title="Krisantus Amka Ginting  &  Linardi Halim",
         items=[
-            "Lead Data Strategy & Preprocessing Pipeline",
+            "Data Strategy, Preprocessing & Documentation",
             "Tanggung Jawab Utama:",
             "  • Audit kualitas anotasi dataset dan penyelesaian class imbalance.",
-            "  • Implementasi modul penajaman citra adaptif (CLAHE kanal-L & Gamma).",
-            "  • Validasi pemisahan dataset dan pencegahan data leakage.",
+            "  • Implementasi modul pencerahan citra adaptif (CLAHE kanal-L & Gamma).",
+            "  • Penyusunan proposal, laporan teknis, dan rekap tracker/logbook.",
         ],
         accent_color=COLOR_CYAN_ACCENT,
         tag="Peran Tim: Data & Preprocessing Lead",
@@ -1003,13 +1030,13 @@ def build_slide_9_execution_plan(prs: Presentation) -> None:
         top=1.95,
         width=card_w,
         height=card_h,
-        title="Kristofer Leonard",
+        title="Kristofer Ryan Giggs Eka Saputra  &  Leonard Franscois",
         items=[
-            "Lead Model Architecture & Inference Deployment",
+            "Model Architecture, Training & Deployment",
             "Tanggung Jawab Utama:",
             "  • Setup environment training YOLOv8-Nano pada GPU Google Colab.",
             "  • Eksekusi 4 eksperimen komparatif terkontrol (B0, Exp-A, Exp-B, Exp-C).",
-            "  • Benchmarking FPS & pembangunan prototype aplikasi demo inferensi.",
+            "  • Benchmarking FPS, prototype demo inferensi, dan video cadangan.",
         ],
         accent_color=COLOR_EMERALD_GREEN,
         tag="Peran Tim: Model & Deployment Lead",
@@ -1194,7 +1221,8 @@ def build_slide_11_qa(prs: Presentation) -> None:
 
     p4 = tf.add_paragraph()
     p4.text = (
-        "Kelompok 9 (Kelas 5PITA) — Krisantus Linardi & Kristofer Leonard\n"
+        "Kelompok 9 (Kelas 5PITA) — Krisantus Amka Ginting, Linardi Halim, "
+        "Kristofer Ryan Giggs Eka Saputra, Leonard Franscois\n"
         "Visi Komputer (IF0PP006) — Semester Ganjil 2026/2027"
     )
     p4.font.name = FONT_FAMILY_BODY
@@ -1245,7 +1273,8 @@ def generate_presentation(output_paths: List[str]) -> None:
 
 
 if __name__ == "__main__":
-    base_dir = r"c:\Project Github\comvis project"
+    # Path relatif terhadap root proyek agar skrip dapat dijalankan dari mesin mana pun.
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     targets = [
         os.path.join(base_dir, "K09_Sidang_Proposal_DeteksiPedestrianLowLight.pptx"),
         os.path.join(base_dir, "docs", "proposal", "K09_Sidang_Proposal_DeteksiPedestrianLowLight.pptx"),

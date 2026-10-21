@@ -30,6 +30,7 @@ DATASET_ROOT_DIR: Path = Path("dataset")
 DEFAULT_SPLIT: str = "valid"
 DEFAULT_CONF_THRESHOLD: float = 0.25
 DEFAULT_IOU_THRESHOLD: float = 0.50
+REALTIME_FPS_TARGET: float = 20.0
 WARMUP_ITERATIONS: int = 5
 CANVAS_SIZE: int = 640
 
@@ -478,14 +479,23 @@ def export_markdown_report(result: BaselineEvaluationResult, report_path: Path) 
 
     if person_metric and vehicle_metric:
         lines.extend([
-            f"1. **Asimetri Recall Pejalan Kaki vs Kendaraan**:",
+            "1. **Asimetri Recall Pejalan Kaki vs Kendaraan**:",
             f"   - Model zero-shot mendeteksi kendaraan dengan Recall **{vehicle_metric.recall * 100:.1f}%**, tetapi mengalami penurunan tajam pada pejalan kaki dengan Recall hanya **{person_metric.recall * 100:.1f}%**.",
             f"   - Terdapat **{person_metric.false_negatives} pejalan kaki yang tidak terdeteksi (False Negative)** dari total {person_metric.ground_truth_count} ground truth.",
             "2. **Bukti Empiris Urgensi Penelitian**:",
             "   - Angka Recall pejalan kaki yang rendah pada model bawaan COCO ini membuktikan secara empiris bahwa model deteksi siang hari mengalami degradasi berat di malam hari.",
             "   - Hasil ini menjadi acuan dasar (*baseline*) kuat yang akan ditingkatkan melalui **Fine-tuning (Exp-A)** dan **Augmentasi Pencahayaan Adaptif (Exp-B CLAHE & Exp-C Gamma)** pada tahap selanjutnya.",
             "3. **Efisiensi Perangkat Keras CPU**:",
-            f"   - Arsitektur YOLOv8n mencatat kecepatan **{result.fps_cpu} FPS** ({result.mean_latency_ms} ms/frame) pada CPU standar, membuktikan kelayakan target real-time ($\\ge 20$ FPS).",
+            f"   - Arsitektur YOLOv8n mencatat kecepatan **{result.fps_cpu} FPS** "
+            f"({result.mean_latency_ms} ms/frame) pada CPU standar. "
+            + (
+                f"Angka ini **memenuhi** ambang real-time ($\\ge {REALTIME_FPS_TARGET:.0f}$ FPS)."
+                if result.fps_cpu >= REALTIME_FPS_TARGET
+                else f"Angka ini **belum memenuhi** ambang real-time "
+                f"($\\ge {REALTIME_FPS_TARGET:.0f}$ FPS), sehingga statusnya *near real-time*. "
+                "Optimasi lanjutan (ekspor ONNX/INT8, resolusi 512, atau multithreading) "
+                "diperlukan untuk melampaui ambang tersebut."
+            ),
             "",
             "---",
             "*(Laporan ini dihasilkan secara otomatis oleh `src/evaluate_baseline.py`)*",

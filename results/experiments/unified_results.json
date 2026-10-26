@@ -1,0 +1,301 @@
+{
+  "split": "test",
+  "dataset": "dataset_dedup",
+  "dataset_root": "dataset_dedup",
+  "conf_threshold": 0.25,
+  "iou_threshold": 0.5,
+  "image_count": 373,
+  "control_model_id": "Exp_A_Standard",
+  "models": [
+    {
+      "model_id": "B0_ZeroShot",
+      "display_name": "B0: Zero-Shot Baseline (COCO Pretrained)",
+      "weights_path": "C:\\Project Github\\comvis project\\yolov8n.pt",
+      "independent_variable": "Tanpa fine-tuning (acuan mutlak).",
+      "is_zero_shot": true,
+      "class_metrics": [
+        {
+          "class_id": 0,
+          "class_name": "Vehicle",
+          "ground_truth": 994,
+          "predictions": 695,
+          "true_positives": 399,
+          "false_positives": 296,
+          "false_negatives": 595,
+          "precision": 57.41,
+          "recall": 40.14,
+          "f1_score": 47.25,
+          "map50": null,
+          "map50_95": null,
+          "recall_ci": [
+            37.13714744008734,
+            43.220453632968486
+          ],
+          "precision_ci": [
+            53.70299679826315,
+            61.03568229696599
+          ]
+        },
+        {
+          "class_id": 1,
+          "class_name": "person",
+          "ground_truth": 79,
+          "predictions": 145,
+          "true_positives": 12,
+          "false_positives": 133,
+          "false_negatives": 67,
+          "precision": 8.28,
+          "recall": 15.19,
+          "f1_score": 10.71,
+          "map50": null,
+          "map50_95": null,
+          "recall_ci": [
+            8.908267892631743,
+            24.699854437704644
+          ],
+          "precision_ci": [
+            4.797375047080193,
+            13.908071030436481
+          ]
+        }
+      ],
+      "macro_precision": 32.84,
+      "macro_recall": 27.66,
+      "macro_f1": 28.98,
+      "map50": 0.03098513767118493,
+      "map50_95": 0.0068835496209456405
+    },
+    {
+      "model_id": "Exp_A_Standard",
+      "display_name": "Exp-A: Fine-Tuned Standard Low-Light",
+      "weights_path": "C:\\Project Github\\comvis project\\hasil_final_model\\hasil_final_model\\Exp_A_Standard_best.pt",
+      "independent_variable": "Fine-tuning domain (control group, tanpa augmentasi pencahayaan).",
+      "is_zero_shot": false,
+      "class_metrics": [
+        {
+          "class_id": 0,
+          "class_name": "Vehicle",
+          "ground_truth": 994,
+          "predictions": 1120,
+          "true_positives": 910,
+          "false_positives": 210,
+          "false_negatives": 84,
+          "precision": 81.25,
+          "recall": 91.55,
+          "f1_score": 86.09,
+          "map50": null,
+          "map50_95": null,
+          "recall_ci": [
+            89.65614055111615,
+            93.12254064100568
+          ],
+          "precision_ci": [
+            78.8587248881935,
+            83.42764072911933
+          ]
+        },
+        {
+          "class_id": 1,
+          "class_name": "person",
+          "ground_truth": 79,
+          "predictions": 102,
+          "true_positives": 64,
+          "false_positives": 38,
+          "false_negatives": 15,
+          "precision": 62.75,
+          "recall": 81.01,
+          "f1_score": 70.72,
+          "map50": null,
+          "map50_95": null,
+          "recall_ci": [
+            71.00735815818702,
+            88.14176922024056
+          ],
+          "precision_ci": [
+            53.06001919994484,
+            71.50502392181197
+          ]
+        }
+      ],
+      "macro_precision": 72.0,
+      "macro_recall": 86.28,
+      "macro_f1": 78.41,
+      "map50": 83.92798127446126,
+      "map50_95": 53.143925169285076
+    },
+    {
+      "model_id": "Exp_B_CLAHE",
+      "display_name": "Exp-B: Fine-Tuned + L-channel CLAHE",
+      "weights_path": "C:\\Project Github\\comvis project\\hasil_final_model\\hasil_final_model\\Exp_B_CLAHE_best.pt",
+      "independent_variable": "Tambahan: CLAHE L-channel pada data latih.",
+      "is_zero_shot": false,
+      "class_metrics": [
+        {
+          "class_id": 0,
+          "class_name": "Vehicle",
+          "ground_truth": 994,
+          "predictions": 1034,
+          "true_positives": 800,
+          "false_positives": 234,
+          "false_negatives": 194,
+          "precision": 77.37,
+          "recall": 80.48,
+          "f1_score": 78.9,
+          "map50": null,
+          "map50_95": null,
+          "recall_ci": [
+            77.90364334787971,
+            82.82744721195786
+          ],
+          "precision_ci": [
+            74.7203737727743,
+            79.81589428527278
+          ]
+        },
+        {
+          "class_id": 1,
+          "class_name": "person",
+          "ground_truth": 79,
+          "predictions": 50,
+          "true_positives": 32,
+          "false_positives": 18,
+          "false_negatives": 47,
+          "precision": 64.0,
+          "recall": 40.51,
+          "f1_score": 49.61,
+          "map50": null,
+          "map50_95": null,
+          "recall_ci": [
+            30.36627826338571,
+            51.52684600852422
+          ],
+          "precision_ci": [
+            50.1410168761127,
+            75.86125034815326
+          ]
+        }
+      ],
+      "macro_precision": 70.69,
+      "macro_recall": 60.5,
+      "macro_f1": 64.25,
+      "map50": 66.37553229559632,
+      "map50_95": 37.04624977355323
+    },
+    {
+      "model_id": "Exp_C_Gamma",
+      "display_name": "Exp-C: Fine-Tuned + Gamma Correction",
+      "weights_path": "C:\\Project Github\\comvis project\\hasil_final_model\\hasil_final_model\\Exp_C_Gamma_best.pt",
+      "independent_variable": "Tambahan: Gamma Correction (gamma=0.6) pada data latih.",
+      "is_zero_shot": false,
+      "class_metrics": [
+        {
+          "class_id": 0,
+          "class_name": "Vehicle",
+          "ground_truth": 994,
+          "predictions": 1244,
+          "true_positives": 883,
+          "false_positives": 361,
+          "false_negatives": 111,
+          "precision": 70.98,
+          "recall": 88.83,
+          "f1_score": 78.91,
+          "map50": null,
+          "map50_95": null,
+          "recall_ci": [
+            86.72357300167587,
+            90.64342685343071
+          ],
+          "precision_ci": [
+            68.39713835492162,
+            73.43509893052087
+          ]
+        },
+        {
+          "class_id": 1,
+          "class_name": "person",
+          "ground_truth": 79,
+          "predictions": 156,
+          "true_positives": 52,
+          "false_positives": 104,
+          "false_negatives": 27,
+          "precision": 33.33,
+          "recall": 65.82,
+          "f1_score": 44.26,
+          "map50": null,
+          "map50_95": null,
+          "recall_ci": [
+            54.84909943250701,
+            75.32902678097643
+          ],
+          "precision_ci": [
+            26.414937342324542,
+            41.052827038922615
+          ]
+        }
+      ],
+      "macro_precision": 52.16,
+      "macro_recall": 77.32,
+      "macro_f1": 61.58,
+      "map50": 67.89622483661763,
+      "map50_95": 41.321890987475015
+    },
+    {
+      "model_id": "Exp_D_Robust",
+      "display_name": "Exp-D: Robust Fine-Tuned (Freeze Backbone + Multi-Scale)",
+      "weights_path": "C:\\Project Github\\comvis project\\hasil_final_model\\hasil_final_model\\Exp_D_Robust_best.pt",
+      "independent_variable": "Tambahan: Backbone freezing (freeze=10), lr0=0.001, scale=0.5, mosaic=1.0.",
+      "is_zero_shot": false,
+      "class_metrics": [
+        {
+          "class_id": 0,
+          "class_name": "Vehicle",
+          "ground_truth": 994,
+          "predictions": 1142,
+          "true_positives": 871,
+          "false_positives": 271,
+          "false_negatives": 123,
+          "precision": 76.27,
+          "recall": 87.63,
+          "f1_score": 81.55,
+          "map50": null,
+          "map50_95": null,
+          "recall_ci": [
+            85.43266193701562,
+            89.52914621275087
+          ],
+          "precision_ci": [
+            73.71678054880587,
+            78.64648448940657
+          ]
+        },
+        {
+          "class_id": 1,
+          "class_name": "person",
+          "ground_truth": 79,
+          "predictions": 122,
+          "true_positives": 57,
+          "false_positives": 65,
+          "false_negatives": 22,
+          "precision": 46.72,
+          "recall": 72.15,
+          "f1_score": 56.72,
+          "map50": null,
+          "map50_95": null,
+          "recall_ci": [
+            61.41755025997596,
+            80.83182643890088
+          ],
+          "precision_ci": [
+            38.1037535373078,
+            55.53904107507917
+          ]
+        }
+      ],
+      "macro_precision": 61.49,
+      "macro_recall": 79.89,
+      "macro_f1": 69.13,
+      "map50": 76.19792795622924,
+      "map50_95": 45.5524073123386
+    }
+  ]
+}

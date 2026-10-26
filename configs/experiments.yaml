@@ -78,3 +78,26 @@ experiments:
       patience: 100
       cos_lr: true
       pretrained: "yolov8n.pt"
+
+
+  - id: "Exp_D_Robust"
+    display_name: "Exp-D: Robust Fine-Tuned (Freeze Backbone + Multi-Scale)"
+    dataset_variant: "raw"
+    is_zero_shot: false
+    evaluation_split: "test"
+    description: "YOLOv8n di-fine-tune dengan backbone terkunci (freeze=10), lr0=0.001, dan scale=0.5 untuk mencegah catastrophic forgetting."
+    independent_variable: "Transfer learning terkontrol: freeze=10, lr0=0.001, scale=0.5, mosaic=1.0."
+    hyperparams:
+      epochs: 50
+      imgsz: 640
+      batch: 16
+      seed: 42
+      freeze: 10
+      optimizer: "auto"
+      lr0: 0.001
+      lrf: 0.01
+      scale: 0.5
+      mosaic: 1.0
+      patience: 100
+      cos_lr: true
+      pretrained: "yolov8n.pt"

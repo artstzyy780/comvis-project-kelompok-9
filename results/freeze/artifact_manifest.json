@@ -1,6 +1,6 @@
 {
-  "frozen_at": "2026-10-20T14:39:04.905022+00:00",
-  "git_commit": "4869ddd",
+  "frozen_at": "2026-10-25T17:09:05.522287+00:00",
+  "git_commit": "f737b48",
   "artifact_count": 8,
   "artifacts": [
     {
@@ -21,8 +21,8 @@
       "relative_path": "docs/proposal/Naskah_Presentasi_Sidang_Proposal_K09.md",
       "purpose": "CP06 - Naskah presentasi",
       "exists": true,
-      "size_bytes": 16888,
-      "sha256": "d37bf1cecbf0140311f1dbd37765902e533b8c2424dbf948f9aa96a184fcc8fa"
+      "size_bytes": 16690,
+      "sha256": "87c9c60543e722bf95a8acdb55361b4da72f8ae331717a13b86629c02b541eb9"
     },
     {
       "relative_path": "results/audit/audit_report.md",
@@ -41,9 +41,9 @@
     {
       "relative_path": "results/experiments/unified_results.md",
       "purpose": "CP10 - Tabel hasil terpadu (satu split)",
-      "exists": false,
-      "size_bytes": 0,
-      "sha256": ""
+      "exists": true,
+      "size_bytes": 2462,
+      "sha256": "62579bfcd284e506de58a8c8ec538555499428e8264e0ea815728585678e53d2"
     },
     {
       "relative_path": "results/experiments/benchmark_latency_report.md",

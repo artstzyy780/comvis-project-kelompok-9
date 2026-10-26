@@ -31,6 +31,7 @@ from config import (
     DATASET_DIR,
     EXPERIMENTS_DIR,
     PERSON_CLASS_ID,
+    PROJECT_ROOT,
     RESULTS_DIR,
     load_evaluation_config,
 )
@@ -89,19 +90,21 @@ def discover_models(results_root: Path = RESULTS_DIR) -> List[ModelEntry]:
     precedence over the checkpoints shipped in ``hasil_final_model``.
 
     Returns:
-        List of ModelEntry ordered as B0, Exp-A, Exp-B, Exp-C.
+        List of ModelEntry ordered as B0, Exp-A, Exp-B, Exp-C, Exp-D.
     """
     definitions: List[Tuple[str, str, str, bool]] = [
         ("B0_ZeroShot", "B0: Zero-Shot Baseline (COCO Pretrained)", "yolov8n.pt", True),
         ("Exp_A_Standard", "Exp-A: Fine-Tuned Standard Low-Light", "Exp_A_Standard_best.pt", False),
         ("Exp_B_CLAHE", "Exp-B: Fine-Tuned + L-channel CLAHE", "Exp_B_CLAHE_best.pt", False),
         ("Exp_C_Gamma", "Exp-C: Fine-Tuned + Gamma Correction", "Exp_C_Gamma_best.pt", False),
+        ("Exp_D_Robust", "Exp-D: Robust Fine-Tuned (Freeze Backbone + Multi-Scale)", "Exp_D_Robust_best.pt", False),
     ]
     variables: Dict[str, str] = {
         "B0_ZeroShot": "Tanpa fine-tuning (acuan mutlak).",
         "Exp_A_Standard": "Fine-tuning domain (control group, tanpa augmentasi pencahayaan).",
         "Exp_B_CLAHE": "Tambahan: CLAHE L-channel pada data latih.",
         "Exp_C_Gamma": "Tambahan: Gamma Correction (gamma=0.6) pada data latih.",
+        "Exp_D_Robust": "Tambahan: Backbone freezing (freeze=10), lr0=0.001, scale=0.5, mosaic=1.0.",
     }
 
     entries: List[ModelEntry] = []
@@ -109,6 +112,9 @@ def discover_models(results_root: Path = RESULTS_DIR) -> List[ModelEntry]:
         weights: Optional[Path] = None
         candidates: List[Path] = [
             results_root / "experiments" / "runs" / model_id / "weights" / "best.pt",
+            PROJECT_ROOT / "hasil_final_model" / "hasil_final_model" / filename,
+            PROJECT_ROOT / "hasil_training_kelompok9" / "runs" / "detect" / "runs_comvis" / model_id / "weights" / "best.pt",
+            PROJECT_ROOT / filename,
             results_root / "hasil_final_model" / "hasil_final_model" / filename,
             results_root / filename,
         ]

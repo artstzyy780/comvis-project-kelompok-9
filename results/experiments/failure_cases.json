@@ -1,0 +1,660 @@
+{
+  "model": "hasil_final_model\\hasil_final_model\\Exp_A_Standard_best.pt",
+  "split": "test",
+  "image_count": 373,
+  "ground_truth_person_boxes": 79,
+  "category_counts": {
+    "small_object": 0,
+    "low_contrast": 7,
+    "occluded": 0,
+    "low_confidence": 26,
+    "unlabelled_or_ambiguous": 2,
+    "false_positive": 18
+  },
+  "category_labels": {
+    "small_object": "Pejalan kaki kecil (jarak jauh)",
+    "low_contrast": "Kontras rendah (siluet menghilang)",
+    "occluded": "Terhalang kendaraan",
+    "low_confidence": "Keyakinan model rendah",
+    "unlabelled_or_ambiguous": "Ambiguitas anotasi/taksonomi",
+    "false_positive": "False positive (bukan pejalan kaki)"
+  },
+  "cases": [
+    {
+      "image": "05ba4355-bf968804_augmented_1_jpg.rf.0ce56b46aefebc6374cc629dfddc1d9e.jpg",
+      "category": "low_confidence",
+      "detail": "Deteksi pejalan kaki tanpa anotasi yang cocok.",
+      "confidence": 0.3746979832649231,
+      "box": [
+        512.4,
+        214.8,
+        549.8,
+        300.1
+      ]
+    },
+    {
+      "image": "15ab701b-7b8fe159_augmented_0_jpg.rf.28188f9b175c2bd47c32090b439e58da.jpg",
+      "category": "low_confidence",
+      "detail": "Deteksi pejalan kaki tanpa anotasi yang cocok.",
+      "confidence": 0.3132174611091614,
+      "box": [
+        587.0,
+        312.8,
+        632.9,
+        433.9
+      ]
+    },
+    {
+      "image": "1a5d0011-c34c50cc_augmented_0_jpg.rf.59c1e1d956b35018be915b9826d5fb3a.jpg",
+      "category": "low_confidence",
+      "detail": "Deteksi pejalan kaki tanpa anotasi yang cocok.",
+      "confidence": 0.26053136587142944,
+      "box": [
+        92.7,
+        281.9,
+        145.6,
+        397.8
+      ]
+    },
+    {
+      "image": "1a5d0011-c34c50cc_augmented_0_jpg.rf.dc3a7779927e18210923ba7bea8f0e33.jpg",
+      "category": "false_positive",
+      "detail": "Deteksi pejalan kaki tanpa anotasi yang cocok.",
+      "confidence": 0.432131826877594,
+      "box": [
+        122.2,
+        273.0,
+        168.0,
+        383.0
+      ]
+    },
+    {
+      "image": "1a5d0011-c34c50cc_augmented_2_jpg.rf.6b6187c70908022b3a1229fc1ab50211.jpg",
+      "category": "false_positive",
+      "detail": "Deteksi pejalan kaki tanpa anotasi yang cocok.",
+      "confidence": 0.4852445125579834,
+      "box": [
+        541.4,
+        285.6,
+        592.6,
+        413.1
+      ]
+    },
+    {
+      "image": "1a5d0011-c34c50cc_augmented_2_jpg.rf.6b6187c70908022b3a1229fc1ab50211.jpg",
+      "category": "false_positive",
+      "detail": "Deteksi pejalan kaki tanpa anotasi yang cocok.",
+      "confidence": 0.43107643723487854,
+      "box": [
+        91.6,
+        265.0,
+        137.2,
+        388.0
+      ]
+    },
+    {
+      "image": "1a5d0011-c34c50cc_augmented_2_jpg.rf.f46bd0e63bb7e41bb23ad21f0ab1f42b.jpg",
+      "category": "low_confidence",
+      "detail": "Deteksi pejalan kaki tanpa anotasi yang cocok.",
+      "confidence": 0.297195166349411,
+      "box": [
+        14.3,
+        276.1,
+        67.8,
+        413.7
+      ]
+    },
+    {
+      "image": "1c89eba4-789be3a9_augmented_1_jpg.rf.b542a23ca11acc294e2c87726c5031ee.jpg",
+      "category": "false_positive",
+      "detail": "Deteksi pejalan kaki tanpa anotasi yang cocok.",
+      "confidence": 0.5739383101463318,
+      "box": [
+        453.5,
+        330.5,
+        494.3,
+        464.5
+      ]
+    },
+    {
+      "image": "1c89eba4-789be3a9_augmented_1_jpg.rf.b542a23ca11acc294e2c87726c5031ee.jpg",
+      "category": "false_positive",
+      "detail": "Deteksi pejalan kaki tanpa anotasi yang cocok.",
+      "confidence": 0.5008599758148193,
+      "box": [
+        474.9,
+        337.1,
+        514.4,
+        454.2
+      ]
+    },
+    {
+      "image": "1c89eba4-789be3a9_augmented_1_jpg.rf.b542a23ca11acc294e2c87726c5031ee.jpg",
+      "category": "low_confidence",
+      "detail": "Deteksi pejalan kaki tanpa anotasi yang cocok.",
+      "confidence": 0.33065372705459595,
+      "box": [
+        443.8,
+        323.5,
+        476.9,
+        454.6
+      ]
+    },
+    {
+      "image": "1d5df664-41480e86_augmented_0_jpg.rf.57392d8c8402c2c522e63ccbd1c97fc5.jpg",
+      "category": "false_positive",
+      "detail": "Deteksi pejalan kaki tanpa anotasi yang cocok.",
+      "confidence": 0.4112466275691986,
+      "box": [
+        244.5,
+        231.1,
+        283.2,
+        324.7
+      ]
+    },
+    {
+      "image": "1f08ba8a-1e15976e_augmented_0_jpg.rf.ce5e0d948ba77840d1db22a0084e62a1.jpg",
+      "category": "low_confidence",
+      "detail": "Deteksi pejalan kaki tanpa anotasi yang cocok.",
+      "confidence": 0.35091596841812134,
+      "box": [
+        416.2,
+        192.3,
+        455.2,
+        290.3
+      ]
+    },
+    {
+      "image": "1f08ba8a-1e15976e_augmented_0_jpg.rf.ce5e0d948ba77840d1db22a0084e62a1.jpg",
+      "category": "low_confidence",
+      "detail": "Deteksi pejalan kaki tanpa anotasi yang cocok.",
+      "confidence": 0.2670643627643585,
+      "box": [
+        97.8,
+        233.1,
+        123.2,
+        283.9
+      ]
+    },
+    {
+      "image": "26747328-a3cb89fc_augmented_1_jpg.rf.d9ac6dd709c879d981312383d18dd1b6.jpg",
+      "category": "low_confidence",
+      "detail": "Deteksi pejalan kaki tanpa anotasi yang cocok.",
+      "confidence": 0.34926077723503113,
+      "box": [
+        39.8,
+        177.7,
+        105.4,
+        417.8
+      ]
+    },
+    {
+      "image": "381c576a-6df3dd9a_augmented_0_jpg.rf.54b2e01940568a4ce55228692ea698e2.jpg",
+      "category": "low_confidence",
+      "detail": "Pejalan kaki teranotasi tidak terdeteksi (tinggi 22.5% dari citra).",
+      "confidence": null,
+      "box": [
+        0.0,
+        301.5,
+        31.0,
+        445.5
+      ]
+    },
+    {
+      "image": "381c576a-6df3dd9a_augmented_0_jpg.rf.9afd395a0133ffe9a8fad2e2f2be6d45.jpg",
+      "category": "low_contrast",
+      "detail": "Pejalan kaki teranotasi tidak terdeteksi (tinggi 21.1% dari citra).",
+      "confidence": null,
+      "box": [
+        614.0,
+        309.5,
+        640.0,
+        444.5
+      ]
+    },
+    {
+      "image": "381c576a-6df3dd9a_augmented_0_jpg.rf.c55032e89a15bc1c1e817ad69d05386e.jpg",
+      "category": "low_confidence",
+      "detail": "Pejalan kaki teranotasi tidak terdeteksi (tinggi 20.3% dari citra).",
+      "confidence": null,
+      "box": [
+        604.2,
+        311.0,
+        639.8,
+        441.0
+      ]
+    },
+    {
+      "image": "39ddb110-03f0f5a3_augmented_0_jpg.rf.61a5d26109eb58e538df198a948bbc03.jpg",
+      "category": "low_confidence",
+      "detail": "Pejalan kaki teranotasi tidak terdeteksi (tinggi 11.7% dari citra).",
+      "confidence": null,
+      "box": [
+        509.0,
+        256.5,
+        550.0,
+        331.5
+      ]
+    },
+    {
+      "image": "4037e279-274c0470_augmented_1_jpg.rf.aa82ade68da97311a1b77bb5fa7a8e9b.jpg",
+      "category": "false_positive",
+      "detail": "Deteksi pejalan kaki tanpa anotasi yang cocok.",
+      "confidence": 0.42483940720558167,
+      "box": [
+        468.2,
+        258.4,
+        497.2,
+        342.5
+      ]
+    },
+    {
+      "image": "4037e279-274c0470_augmented_1_jpg.rf.aa82ade68da97311a1b77bb5fa7a8e9b.jpg",
+      "category": "low_confidence",
+      "detail": "Deteksi pejalan kaki tanpa anotasi yang cocok.",
+      "confidence": 0.36621180176734924,
+      "box": [
+        450.5,
+        256.7,
+        476.8,
+        334.7
+      ]
+    },
+    {
+      "image": "4037e279-274c0470_augmented_1_jpg.rf.aa82ade68da97311a1b77bb5fa7a8e9b.jpg",
+      "category": "low_confidence",
+      "detail": "Deteksi pejalan kaki tanpa anotasi yang cocok.",
+      "confidence": 0.2814848721027374,
+      "box": [
+        486.2,
+        257.2,
+        519.5,
+        337.6
+      ]
+    },
+    {
+      "image": "4037e279-274c0470_augmented_2_jpg.rf.b81c5dd36c36950a89aea088faf4ede1.jpg",
+      "category": "low_confidence",
+      "detail": "Deteksi pejalan kaki tanpa anotasi yang cocok.",
+      "confidence": 0.27488091588020325,
+      "box": [
+        468.6,
+        240.9,
+        495.9,
+        329.1
+      ]
+    },
+    {
+      "image": "43f61d4d-15d8643e_augmented_1_jpg.rf.528f76b6bca71a159475659514db34bc.jpg",
+      "category": "false_positive",
+      "detail": "Deteksi pejalan kaki tanpa anotasi yang cocok.",
+      "confidence": 0.44196370244026184,
+      "box": [
+        101.4,
+        65.0,
+        132.4,
+        145.5
+      ]
+    },
+    {
+      "image": "43f61d4d-15d8643e_augmented_1_jpg.rf.545e159ec749af48ebfe38f0aeb6c6bb.jpg",
+      "category": "false_positive",
+      "detail": "Deteksi pejalan kaki tanpa anotasi yang cocok.",
+      "confidence": 0.4793410301208496,
+      "box": [
+        506.1,
+        69.2,
+        536.9,
+        143.4
+      ]
+    },
+    {
+      "image": "43f61d4d-15d8643e_augmented_1_jpg.rf.ddb5de5ad8f2a33652d24272bc4536d4.jpg",
+      "category": "false_positive",
+      "detail": "Deteksi pejalan kaki tanpa anotasi yang cocok.",
+      "confidence": 0.4369681179523468,
+      "box": [
+        506.0,
+        65.6,
+        536.9,
+        142.6
+      ]
+    },
+    {
+      "image": "4bcaa02b-339b3d06_augmented_0_jpg.rf.37e3cb106a36ff9dba335a71d51d958e.jpg",
+      "category": "low_confidence",
+      "detail": "Deteksi pejalan kaki tanpa anotasi yang cocok.",
+      "confidence": 0.2877691686153412,
+      "box": [
+        511.9,
+        355.8,
+        552.2,
+        459.0
+      ]
+    },
+    {
+      "image": "4bcaa02b-339b3d06_augmented_1_jpg.rf.d60df9787ce0c7c6519f1d95248e1a2c.jpg",
+      "category": "low_confidence",
+      "detail": "Deteksi pejalan kaki tanpa anotasi yang cocok.",
+      "confidence": 0.3242662250995636,
+      "box": [
+        3.3,
+        363.6,
+        44.8,
+        481.7
+      ]
+    },
+    {
+      "image": "4ec75dfc-e66d0059_augmented_0_jpg.rf.5fbc58531a9424e8a4da9dcb99e0e749.jpg",
+      "category": "low_contrast",
+      "detail": "Pejalan kaki teranotasi tidak terdeteksi (tinggi 26.5% dari citra).",
+      "confidence": null,
+      "box": [
+        100.2,
+        189.8,
+        150.8,
+        359.2
+      ]
+    },
+    {
+      "image": "4ec75dfc-e66d0059_augmented_2_jpg.rf.f872f84d810d8bed1eebb40ceeecd2c9.jpg",
+      "category": "unlabelled_or_ambiguous",
+      "detail": "Deteksi pejalan kaki tanpa anotasi yang cocok.",
+      "confidence": 0.5540643930435181,
+      "box": [
+        92.9,
+        193.6,
+        157.6,
+        367.1
+      ]
+    },
+    {
+      "image": "52ddd3f7-e0af4171_augmented_1_jpg.rf.2838152193cc7dc81f4188c436b2c502.jpg",
+      "category": "low_contrast",
+      "detail": "Pejalan kaki teranotasi tidak terdeteksi (tinggi 23.1% dari citra).",
+      "confidence": null,
+      "box": [
+        616.0,
+        244.5,
+        640.0,
+        392.5
+      ]
+    },
+    {
+      "image": "52ddd3f7-e0af4171_augmented_1_jpg.rf.a6a62e99638942dc68ab46efd3fc0034.jpg",
+      "category": "low_confidence",
+      "detail": "Pejalan kaki teranotasi tidak terdeteksi (tinggi 21.4% dari citra).",
+      "confidence": null,
+      "box": [
+        18.0,
+        271.0,
+        55.0,
+        408.0
+      ]
+    },
+    {
+      "image": "52ddd3f7-e0af4171_augmented_1_jpg.rf.e7d3c31be9e75119aa4ea95d3cc3a521.jpg",
+      "category": "low_confidence",
+      "detail": "Pejalan kaki teranotasi tidak terdeteksi (tinggi 23.6% dari citra).",
+      "confidence": null,
+      "box": [
+        0.0,
+        238.0,
+        25.0,
+        389.0
+      ]
+    },
+    {
+      "image": "533e7405-db47296d_augmented_2_jpg.rf.59ebce0073122ced6a5e0dba913e89d6.jpg",
+      "category": "low_confidence",
+      "detail": "Deteksi pejalan kaki tanpa anotasi yang cocok.",
+      "confidence": 0.2887926399707794,
+      "box": [
+        511.7,
+        402.0,
+        543.6,
+        491.3
+      ]
+    },
+    {
+      "image": "533e7405-db47296d_augmented_2_jpg.rf.59ebce0073122ced6a5e0dba913e89d6.jpg",
+      "category": "low_confidence",
+      "detail": "Deteksi pejalan kaki tanpa anotasi yang cocok.",
+      "confidence": 0.2717297673225403,
+      "box": [
+        109.5,
+        379.7,
+        130.8,
+        428.6
+      ]
+    },
+    {
+      "image": "57c4b923-68764b0e_augmented_1_jpg.rf.510dc190e285246f0c978af2f7340c2c.jpg",
+      "category": "low_contrast",
+      "detail": "Pejalan kaki teranotasi tidak terdeteksi (tinggi 37.5% dari citra).",
+      "confidence": null,
+      "box": [
+        0.0,
+        214.0,
+        46.0,
+        454.0
+      ]
+    },
+    {
+      "image": "65854354-85c8fab6_augmented_1_jpg.rf.38ac692f2714ce192ea5054ce1cb622f.jpg",
+      "category": "low_confidence",
+      "detail": "Pejalan kaki teranotasi tidak terdeteksi (tinggi 25.2% dari citra).",
+      "confidence": null,
+      "box": [
+        210.5,
+        289.8,
+        251.5,
+        451.2
+      ]
+    },
+    {
+      "image": "752bc1e1-1927fc43_augmented_1_jpg.rf.36a4ed14180829374c44eee54ba7e4fb.jpg",
+      "category": "false_positive",
+      "detail": "Deteksi pejalan kaki tanpa anotasi yang cocok.",
+      "confidence": 0.4813796281814575,
+      "box": [
+        615.4,
+        241.5,
+        640.0,
+        339.5
+      ]
+    },
+    {
+      "image": "7cfff646-d2a42999_augmented_1_jpg.rf.7bc6074d18bfdaeed442cb16a0baf3ca.jpg",
+      "category": "unlabelled_or_ambiguous",
+      "detail": "Deteksi pejalan kaki tanpa anotasi yang cocok.",
+      "confidence": 0.3249046206474304,
+      "box": [
+        334.9,
+        264.1,
+        387.5,
+        421.2
+      ]
+    },
+    {
+      "image": "8e0572f0-f7015b22_augmented_1_jpg.rf.8739cac334a5468504e3fa770e2ae1cc.jpg",
+      "category": "false_positive",
+      "detail": "Deteksi pejalan kaki tanpa anotasi yang cocok.",
+      "confidence": 0.5026144981384277,
+      "box": [
+        289.2,
+        359.0,
+        315.8,
+        413.7
+      ]
+    },
+    {
+      "image": "8e0572f0-f7015b22_augmented_1_jpg.rf.a8e0e28e8a032a9501506b9b87ba8836.jpg",
+      "category": "low_confidence",
+      "detail": "Deteksi pejalan kaki tanpa anotasi yang cocok.",
+      "confidence": 0.3195951581001282,
+      "box": [
+        307.5,
+        328.1,
+        330.2,
+        377.4
+      ]
+    },
+    {
+      "image": "9f1942ee-08f8165a_augmented_1_jpg.rf.74c984b8172f5510ca07f6b174027db1.jpg",
+      "category": "false_positive",
+      "detail": "Deteksi pejalan kaki tanpa anotasi yang cocok.",
+      "confidence": 0.4768407344818115,
+      "box": [
+        595.5,
+        392.7,
+        635.2,
+        486.3
+      ]
+    },
+    {
+      "image": "ac260eb6-b43c9487_augmented_2_jpg.rf.da6dca3ae7519cd9c9bdb74fac70e018.jpg",
+      "category": "false_positive",
+      "detail": "Deteksi pejalan kaki tanpa anotasi yang cocok.",
+      "confidence": 0.6335183382034302,
+      "box": [
+        375.0,
+        399.9,
+        408.3,
+        488.5
+      ]
+    },
+    {
+      "image": "b1552ab4-2e36dcd4_augmented_0_jpg.rf.e0d0264f339cdbdbeadbac731162a116.jpg",
+      "category": "low_confidence",
+      "detail": "Deteksi pejalan kaki tanpa anotasi yang cocok.",
+      "confidence": 0.2689618766307831,
+      "box": [
+        256.9,
+        300.2,
+        299.2,
+        378.1
+      ]
+    },
+    {
+      "image": "b1552ab4-2e36dcd4_augmented_1_jpg.rf.285115289d7a64f9105cf1bd8471ec36.jpg",
+      "category": "false_positive",
+      "detail": "Deteksi pejalan kaki tanpa anotasi yang cocok.",
+      "confidence": 0.6828340291976929,
+      "box": [
+        351.7,
+        294.5,
+        384.6,
+        380.8
+      ]
+    },
+    {
+      "image": "b1552ab4-2e36dcd4_augmented_1_jpg.rf.b6ef188ba4f830664064e7a23ee675d9.jpg",
+      "category": "low_contrast",
+      "detail": "Pejalan kaki teranotasi tidak terdeteksi (tinggi 14.4% dari citra).",
+      "confidence": null,
+      "box": [
+        297.0,
+        305.0,
+        341.0,
+        397.0
+      ]
+    },
+    {
+      "image": "b1552ab4-2e36dcd4_augmented_1_jpg.rf.b6ef188ba4f830664064e7a23ee675d9.jpg",
+      "category": "false_positive",
+      "detail": "Deteksi pejalan kaki tanpa anotasi yang cocok.",
+      "confidence": 0.5380442142486572,
+      "box": [
+        259.1,
+        293.6,
+        296.7,
+        394.1
+      ]
+    },
+    {
+      "image": "b1552ab4-2e36dcd4_augmented_1_jpg.rf.c3b0337feafb55fc7ea4c47db5fc6c5d.jpg",
+      "category": "low_contrast",
+      "detail": "Pejalan kaki teranotasi tidak terdeteksi (tinggi 15.0% dari citra).",
+      "confidence": null,
+      "box": [
+        262.5,
+        323.5,
+        308.5,
+        419.5
+      ]
+    },
+    {
+      "image": "b1552ab4-2e36dcd4_augmented_1_jpg.rf.c3b0337feafb55fc7ea4c47db5fc6c5d.jpg",
+      "category": "false_positive",
+      "detail": "Deteksi pejalan kaki tanpa anotasi yang cocok.",
+      "confidence": 0.7676178216934204,
+      "box": [
+        224.7,
+        308.9,
+        261.6,
+        417.6
+      ]
+    },
+    {
+      "image": "b1552ab4-2e36dcd4_augmented_2_jpg.rf.92430cce92582e2305dce8fcf3dad31b.jpg",
+      "category": "low_confidence",
+      "detail": "Deteksi pejalan kaki tanpa anotasi yang cocok.",
+      "confidence": 0.2874451279640198,
+      "box": [
+        339.0,
+        281.5,
+        375.9,
+        372.0
+      ]
+    },
+    {
+      "image": "b1552ab4-2e36dcd4_augmented_2_jpg.rf.c8edcae909f2c3d2a629d2f1935dc81b.jpg",
+      "category": "false_positive",
+      "detail": "Deteksi pejalan kaki tanpa anotasi yang cocok.",
+      "confidence": 0.47749796509742737,
+      "box": [
+        260.9,
+        281.2,
+        294.1,
+        368.9
+      ]
+    },
+    {
+      "image": "c57a44ff-5cf5202c_augmented_0_jpg.rf.5594ad0d2f396ef90abd9403fc39e10b.jpg",
+      "category": "low_confidence",
+      "detail": "Pejalan kaki teranotasi tidak terdeteksi (tinggi 46.7% dari citra).",
+      "confidence": null,
+      "box": [
+        271.5,
+        260.0,
+        465.5,
+        559.0
+      ]
+    },
+    {
+      "image": "c57a44ff-5cf5202c_augmented_0_jpg.rf.7664e3d1dab0d50afd979e4fa5a259f9.jpg",
+      "category": "low_contrast",
+      "detail": "Pejalan kaki teranotasi tidak terdeteksi (tinggi 44.8% dari citra).",
+      "confidence": null,
+      "box": [
+        199.5,
+        231.5,
+        385.5,
+        518.5
+      ]
+    },
+    {
+      "image": "c57a44ff-5cf5202c_augmented_0_jpg.rf.dceca84c3bd20724fbf395ce07a2d7d1.jpg",
+      "category": "low_confidence",
+      "detail": "Pejalan kaki teranotasi tidak terdeteksi (tinggi 42.2% dari citra).",
+      "confidence": null,
+      "box": [
+        203.3,
+        239.0,
+        378.8,
+        509.0
+      ]
+    }
+  ]
+}

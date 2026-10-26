@@ -222,6 +222,12 @@ def train_experiment(
         "exist_ok": True,
         "verbose": True,
     }
+
+    # Pass fine-tuning transfer learning parameters (anti-catastrophic forgetting)
+    for opt_param in ("freeze", "scale", "mosaic", "mixup", "lrf", "warmup_epochs"):
+        if opt_param in spec.hyperparams:
+            hyperparams[opt_param] = spec.hyperparams[opt_param]
+
     manifest.hyperparams = hyperparams
 
     logger.info("Melatih %s (%s)", spec.experiment_id, spec.display_name)

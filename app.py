@@ -29,6 +29,11 @@ from PIL import Image
 import streamlit as st
 from ultralytics import YOLO
 
+from src.adaptive_postprocessing import (
+    AdaptiveIlluminationProfile,
+    compute_adaptive_illumination_profile,
+)
+
 # ----------------------------------------------------------------------------
 # Constants & Configuration
 # ----------------------------------------------------------------------------
@@ -139,28 +144,53 @@ def run_inference(
     is_zero_shot: bool,
     conf_threshold: float,
     iou_threshold: float,
+    adaptive_threshold: bool = False,
+    enable_tracking: bool = False,
 ) -> Tuple[np.ndarray, Dict[str, Any]]:
-    """Execute forward inference and render bounding boxes onto an image.
+    """Execute forward inference or tracking and render bounding boxes onto an image.
 
     Args:
         model: Ultralytics YOLO model.
         image_rgb: Source image in RGB format.
         is_zero_shot: True if model uses stock COCO taxonomy.
-        conf_threshold: Minimum confidence score.
+        conf_threshold: Minimum confidence score (used as base when adaptive is active).
         iou_threshold: IoU NMS threshold.
+        adaptive_threshold: Flag to enable luminance-aware dynamic thresholding.
+        enable_tracking: Flag to activate ByteTrack temporal Kalman filter.
 
     Returns:
         Annotated RGB image and a dictionary of inference diagnostics.
     """
+    illum_profile: Optional[AdaptiveIlluminationProfile] = None
+    effective_conf: float = conf_threshold
+
+    if adaptive_threshold:
+        illum_profile = compute_adaptive_illumination_profile(
+            image_rgb, base_conf=conf_threshold, is_bgr=False
+        )
+        effective_conf = illum_profile.effective_conf_threshold
+
     start_time: float = time.perf_counter()
-    results = model.predict(
-        source=image_rgb,
-        conf=conf_threshold,
-        iou=iou_threshold,
-        imgsz=640,
-        device="cpu",
-        verbose=False,
-    )
+    if enable_tracking:
+        results = model.track(
+            source=image_rgb,
+            persist=True,
+            tracker="bytetrack.yaml",
+            conf=effective_conf,
+            iou=iou_threshold,
+            imgsz=640,
+            device="cpu",
+            verbose=False,
+        )
+    else:
+        results = model.predict(
+            source=image_rgb,
+            conf=effective_conf,
+            iou=iou_threshold,
+            imgsz=640,
+            device="cpu",
+            verbose=False,
+        )
     latency_ms: float = (time.perf_counter() - start_time) * 1000.0
     fps: float = 1000.0 / latency_ms if latency_ms > 0 else 0.0
 
@@ -175,8 +205,13 @@ def run_inference(
             xyxy_arr = boxes.xyxy.cpu().numpy()
             conf_arr = boxes.conf.cpu().numpy()
             cls_arr = boxes.cls.cpu().numpy().astype(int)
+            track_ids = (
+                boxes.id.cpu().numpy().astype(int)
+                if (enable_tracking and boxes.id is not None)
+                else None
+            )
 
-            for xyxy, conf, raw_cls in zip(xyxy_arr, conf_arr, cls_arr):
+            for idx, (xyxy, conf, raw_cls) in enumerate(zip(xyxy_arr, conf_arr, cls_arr)):
                 target_cls: Optional[int] = None
                 if is_zero_shot:
                     target_cls = COCO_TO_TARGET_MAPPING.get(raw_cls)
@@ -194,7 +229,9 @@ def run_inference(
 
                 x1, y1, x2, y2 = map(int, xyxy)
                 color = CLASS_COLORS[target_cls]
-                label_text = f"{TARGET_CLASSES[target_cls]} {conf:.2f}"
+
+                tid_str = f"ID:{track_ids[idx]} " if (track_ids is not None and idx < len(track_ids)) else ""
+                label_text = f"{tid_str}{TARGET_CLASSES[target_cls]} {conf:.2f}"
 
                 # Draw bounding box
                 cv2.rectangle(annotated, (x1, y1), (x2, y2), color, 2)
@@ -229,6 +266,7 @@ def run_inference(
                         "class": TARGET_CLASSES[target_cls],
                         "confidence": float(conf),
                         "box": [x1, y1, x2, y2],
+                        "track_id": int(track_ids[idx]) if (track_ids is not None and idx < len(track_ids)) else None,
                     }
                 )
 
@@ -239,6 +277,8 @@ def run_inference(
         "vehicle_count": vehicle_count,
         "total_detections": person_count + vehicle_count,
         "detections": detections_list,
+        "illumination_profile": illum_profile,
+        "effective_conf": effective_conf,
     }
     return annotated, diagnostics
 
@@ -255,6 +295,7 @@ def render_static_detection(
     secondary_model_key: Optional[str],
     conf_threshold: float,
     iou_threshold: float,
+    adaptive_threshold: bool = False,
 ) -> None:
     """Render detection results on a static image with optional side-by-side view.
 
@@ -270,6 +311,15 @@ def render_static_detection(
     """
     spec_p = MODEL_REGISTRY[primary_model_key]
 
+    if adaptive_threshold:
+        prof_check = compute_adaptive_illumination_profile(image_rgb, base_conf=conf_threshold, is_bgr=False)
+        st.info(
+            f"💡 **Profil Pencahayaan Adaptif:** {prof_check.mode_label} | "
+            f"Rerata Luminansi: **{prof_check.luminance:.1f} L* / 100** | "
+            f"Rasio Glare: **{prof_check.glare_ratio * 100:.2f}%** | "
+            f"Ambang Terkoreksi: **{prof_check.effective_conf_threshold:.2f}** (Base: {conf_threshold:.2f})"
+        )
+
     if enable_comparison and secondary_model_key and secondary_model:
         spec_s = MODEL_REGISTRY[secondary_model_key]
         col_left, col_right = st.columns(2)
@@ -284,6 +334,8 @@ def render_static_detection(
                 spec_p["is_zero_shot"],
                 conf_threshold,
                 iou_threshold,
+                adaptive_threshold=adaptive_threshold,
+                enable_tracking=False,
             )
             st.image(annotated_p, use_container_width=True)
 
@@ -303,6 +355,8 @@ def render_static_detection(
                 spec_s["is_zero_shot"],
                 conf_threshold,
                 iou_threshold,
+                adaptive_threshold=adaptive_threshold,
+                enable_tracking=False,
             )
             st.image(annotated_s, use_container_width=True)
 
@@ -337,6 +391,8 @@ def render_static_detection(
             spec_p["is_zero_shot"],
             conf_threshold,
             iou_threshold,
+            adaptive_threshold=adaptive_threshold,
+            enable_tracking=False,
         )
         st.image(annotated_img, use_container_width=True)
 
@@ -358,6 +414,8 @@ def process_video_feed(
     iou_threshold: float,
     frame_skip: int = 1,
     is_live_camera: bool = False,
+    adaptive_threshold: bool = False,
+    enable_tracking: bool = True,
 ) -> None:
     """Stream and infer video frames in real-time with UI metrics updates.
 
@@ -422,13 +480,15 @@ def process_video_feed(
                 spec_p["is_zero_shot"],
                 conf_threshold,
                 iou_threshold,
+                adaptive_threshold=adaptive_threshold,
+                enable_tracking=enable_tracking,
             )
             frame_ph_p.image(annotated_p, use_container_width=True)
             metric_ph_p.markdown(
                 f"**🚶 Pedestrian:** `{diag_p['person_count']}` | "
                 f"**🚗 Kendaraan:** `{diag_p['vehicle_count']}` | "
                 f"**⏱️ Latensi:** `{diag_p['latency_ms']:.1f} ms` | "
-                f"**⚡ FPS:** `{diag_p['fps']:.1f}`"
+                f"**⚡ FPS:** `{diag_p['fps']:.1f}`" + (" | 🎯 `ByteTrack`" if enable_tracking else "")
             )
 
             if enable_comparison and spec_s and secondary_model:
@@ -438,6 +498,8 @@ def process_video_feed(
                     spec_s["is_zero_shot"],
                     conf_threshold,
                     iou_threshold,
+                    adaptive_threshold=adaptive_threshold,
+                    enable_tracking=enable_tracking,
                 )
                 frame_ph_s.image(annotated_s, use_container_width=True)
                 metric_ph_s.markdown(
@@ -528,6 +590,26 @@ def main() -> None:
         value=0.45,
         step=0.05,
         help="Ambang batas tumpang-tindih bounding box untuk Non-Maximum Suppression.",
+    )
+
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("🔬 Peningkatan Algoritmik (CP12+)")
+    enable_adaptive_conf = st.sidebar.checkbox(
+        "💡 Ambang Batas Adaptif (Luminance-Aware)",
+        value=False,
+        help=(
+            "Menghitung luminansi L* dan rasio silau (glare) secara otomatis. "
+            "Pada area gelap, ambang diturunkan (0.18-0.20) untuk mengangkat Recall; "
+            "pada area silau lampu, ambang dinaikkan (0.35) untuk menekan False Positive."
+        ),
+    )
+    enable_temporal_tracking = st.sidebar.checkbox(
+        "🎯 Pelacakan Temporal (ByteTrack)",
+        value=True,
+        help=(
+            "Mengaktifkan Kalman Filter (ByteTrack) pada video/kamera "
+            "untuk menjaga kontinuitas deteksi dan menampilkan Track ID."
+        ),
     )
 
     st.sidebar.markdown("---")
@@ -629,6 +711,8 @@ def main() -> None:
                         iou_threshold=iou_threshold,
                         frame_skip=1,
                         is_live_camera=True,
+                        adaptive_threshold=enable_adaptive_conf,
+                        enable_tracking=enable_temporal_tracking,
                     )
 
         elif input_source == "Unggah Berkas Video (MP4/AVI/MOV)":
@@ -674,6 +758,8 @@ def main() -> None:
                             iou_threshold=iou_threshold,
                             frame_skip=frame_skip_val,
                             is_live_camera=False,
+                            adaptive_threshold=enable_adaptive_conf,
+                            enable_tracking=enable_temporal_tracking,
                         )
 
                 if not start_video:
@@ -703,6 +789,7 @@ def main() -> None:
                     secondary_model_key=secondary_model_key,
                     conf_threshold=conf_threshold,
                     iou_threshold=iou_threshold,
+                    adaptive_threshold=enable_adaptive_conf,
                 )
 
     # ------------------------------------------------------------------------

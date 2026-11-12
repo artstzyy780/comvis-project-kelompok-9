@@ -27,7 +27,11 @@
 
 ### Rincian Latensi per Tahapan Pipeline Ultralytics (ms)
 
-| ID Model | Preprocessing | Model Forward (Inference) | Postprocessing (NMS) | Total Mean |
+> Kolom *Preprocessing* di bawah adalah preprocessing internal Ultralytics
+> (resize/normalize), **bukan** CLAHE/Gamma. Biaya enhancement end-to-end
+> belum diukur oleh benchmark ini.
+
+| ID Model | Preprocessing (internal) | Model Forward (Inference) | Postprocessing (NMS) | Total Mean |
 |:---:|:---:|:---:|:---:|:---:|
 | **B0_ZeroShot** | 1.94 ms | 50.07 ms | 0.94 ms | **53.49 ms** |
 | **Exp_A_Standard** | 2.71 ms | 47.94 ms | 0.86 ms | **52.04 ms** |
@@ -50,12 +54,13 @@
 ## 4. Temuan Kritis & Analisis Kelayakan Sidang UAS
 
 1. **Validasi Hipotesis Proposal**:
-   - Model yang diperkuat metode pencahayaan adaptif (**Exp-C Gamma** dan **Exp-A Fine-Tuned**) berhasil meningkatkan Recall pejalan kaki malam hari secara signifikan dari baseline B0.
+   - Fine-tuning (Exp-A) menghasilkan Recall `person` tertinggi (66.67%), diikuti Exp-C Gamma (64.10%). Exp-B CLAHE justru lebih rendah (48.72%). Semua varian tetap jauh di atas baseline B0 (20.51%).
+   - Angka di tabel ini adalah metrik per-kelas pada conf 0.25, bukan macro recall Ultralytics. Lihat `METRICS_RECONCILIATION.md`.
 2. **Kelayakan Real-Time pada Perangkat Edge / Komputer Konsumen**:
-   - Latensi inferensi murni pada CPU berada pada kisaran **45-55 ms** (~18-22 FPS). Pada resolusi penuh 640x640 di CPU prosesor laptop standar, throughput sangat mendekati ambang batas real-time (20 FPS).
-   - Dalam skenario deployment praktis (misal via OpenCV threading / INT8 ONNX Runtime), throughput dapat dengan mudah dioptimasi melampaui **30+ FPS**.
+   - Latensi inferensi murni pada CPU berada pada kisaran **52-55 ms** (18.29-19.21 FPS). Semua varian **belum memenuhi** target 20 FPS.
+   - Optimasi seperti OpenCV threading, ONNX Runtime, atau INT8 quantization belum diuji dalam proyek ini, sehingga klaim >20 FPS belum didukung bukti.
 3. **Kesiapan Demonstrasi Langsung**:
-   - Model berbobot ringan (~6.5 MB) dan waktu inferensi yang stabil siap diintegrasikan ke antarmuka aplikasi interaktif Streamlit untuk demonstrasi langsung di hadapan dosen penguji.
+   - Model berbobot ringan (~6.5 MB) dan latensi stabil, tetapi aplikasi demo (Streamlit/OpenCV) belum termasuk dalam repositori ini. Benchmark ini hanya mengukur model, bukan aplikasi end-to-end.
 
 ---
 *(Laporan ini dihasilkan secara otomatis oleh `src/benchmark_inference.py`)*

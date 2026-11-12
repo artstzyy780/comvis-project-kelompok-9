@@ -54,31 +54,69 @@ Dari 39 kotak `person` pada test set, **28 kotak (71,8%)** berasal dari scene ya
 | Valid | 384 | 103 | 178 |
 | Test | 373 | 103 | **79** |
 
-Split baru ini **0 scene bocor** dan test set menjadi **2× lebih besar** (39 → 79 kotak pejalan kaki), sehingga interval keyakinanRecall jauh lebih sempit.
+Split baru ini **0 scene bocor** dan test set menjadi **2× lebih besar** (39 → 79 kotak pejalan kaki), sehingga interval keyakinan Recall jauh lebih sempit.
 
 ---
 
 ## 🏆 3. Hasil Eksperimen & Benchmark
 
-### A. Evaluasi Akurasi (Validation Set - 50 Epochs, GPU NVIDIA Tesla T4)
+> **Baca dulu:** angka pada bagian ini sudah direkonsiliasi. Detail sumber, peringatan
+> operasi, dan keterbatasan ada di
+> [`results/experiments/METRICS_RECONCILIATION.md`](results/experiments/METRICS_RECONCILIATION.md).
+> Secara ringkas: `metrics/recall(B)` dari Ultralytics adalah **macro recall semua kelas**,
+> bukan recall `person`. Tabel lama mencampur keduanya.
 
-| ID Eksperimen | Skenario Eksperimen | Recall Pejalan Kaki (IoU=0.5) | mAP@50 (All Classes) | $\Delta$ Recall vs B0 |
-|:---:|---|:---:|:---:|:---:|
-| **B0** | Zero-Shot Baseline (COCO Pretrained) | **39.10%** | **38.00%** | — |
-| **Exp-A** | Fine-Tuned YOLOv8n Standar | **73.28%** | **78.12%** | **+34.18%** |
-| **Exp-B** | Proposed: Fine-Tuned + L-channel CLAHE | **69.27%** | **77.73%** | **+30.17%** |
-| **Exp-C** | Proposed: Fine-Tuned + Gamma Correction ($\gamma=0.6$) | **73.41%** | **74.17%** | **+34.31%** (Juara 1 Recall) |
+### A. Evaluasi Utama — Test Split, Metrik Per-Kelas `person`
 
-### B. Benchmark Latensi & Throughput CPU Lokal (Test Set - 100 Citra Malam Murni)
+*Sumber: `results/experiments/benchmark_latency_metrics.json`. Conf 0.25, IoU 0.5, 100 citra test, 39 box `person`.*
+
+| ID Eksperimen | Skenario Eksperimen | Recall `person` | Precision `person` | F1 `person` | $\Delta$ Recall vs B0 |
+|:---:|---|:---:|:---:|:---:|:---:|
+| **B0** | Zero-Shot Baseline (COCO Pretrained) | 20.51% | 15.09% | 17.39% | — |
+| **Exp-A** | Fine-Tuned YOLOv8n Standar | **66.67%** | 53.06% | **59.09%** | **+46.16 pp** |
+| **Exp-B** | Proposed: Fine-Tuned + L-channel CLAHE | 48.72% | **67.86%** | 56.72% | +28.21 pp |
+| **Exp-C** | Proposed: Fine-Tuned + Gamma Correction ($\gamma=0.6$) | **64.10%** | 45.45% | 53.19% | +43.59 pp |
+
+**Temuan jujur:** fine-tuning adalah pendorong utama kenaikan recall. Gamma (Exp-C)
+hampir setara dengan fine-tuning standar (Exp-A), sedangkan CLAHE (Exp-B) pada
+sampel test ini lebih rendah meski precision-nya lebih tinggi. Selisih antar-varian
+belum diuji signifikansinya (lihat keterbatasan di laporan rekonsiliasi). Target
+proposal (+10 poin persen) tetap terlampaui oleh ketiga varian.
+
+### B. Hasil Pelatihan — Validation Split (Macro, Bukan Recall `person`)
+
+*Sumber: `metrics/recall(B)` dan `metrics/mAP50(B)` dari Ultralytics pada split validasi, 50 epoch, GPU T4.*
+
+| ID Eksperimen | Macro Recall (semua kelas) | mAP@50 (semua kelas) |
+|:---:|---:|---:|
+| **B0** | 42.28%* | — |
+| **Exp-A** | **73.28%** | **78.12%** |
+| **Exp-B** | 69.27% | 77.73% |
+| **Exp-C** | 73.41% | 74.17% |
+
+> \*B0 dihitung oleh `evaluate_baseline.py` pada conf 0.25, sedangkan Exp-A/B/C
+> dilaporkan pada operating point max-F1. Baris B0 hanya konteks, bukan pembanding
+> langsung.
+>
+> ⚠️ Angka Exp-A/B/C di tabel ini **bukan** recall pejalan kaki. Nilai tersebut adalah
+> rata-rata semua kelas pada operating point max-F1, sehingga tidak boleh dibandingkan
+> langsung dengan Tabel A. Recall `person` validasi harus dihitung ulang lewat
+> `src/evaluate_experiments.py` / `src/metrics.py::per_class_metrics_from_ultralytics`.
+
+### C. Benchmark Latensi & Throughput CPU Lokal (Test Set - 100 Citra Malam)
 
 *Host: AMD Ryzen 6-Core / 12-Threads @ 2.3 GHz, RAM 15.4 GB, `device='cpu'`, Input Size: $640 \times 640$, Batch Size = 1.*
 
-| ID Model | Pedestrian Recall | Pedestrian Precision | Pedestrian F1 | Latensi Rata-rata | Throughput (FPS) | Status Real-Time |
+| ID Model | Pedestrian Recall | Pedestrian Precision | Pedestrian F1 | Latensi Rata-rata | Throughput (FPS) | Target $\ge$ 20 FPS |
 |:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| **B0_ZeroShot** | 20.51% | 15.09% | 17.39% | 53.49 ms | 18.69 FPS | Near Real-Time |
-| **Exp_A_Standard** | **66.67%** | 53.06% | **59.09%** | **52.04 ms** | **19.21 FPS** | Near Real-Time |
-| **Exp_B_CLAHE** | 48.72% | **67.86%** | 56.72% | 54.67 ms | 18.29 FPS | Near Real-Time |
-| **Exp_C_Gamma** | **64.10%** | 45.45% | 53.19% | 54.25 ms | 18.43 FPS | Near Real-Time |
+| **B0_ZeroShot** | 20.51% | 15.09% | 17.39% | 53.49 ms | 18.69 FPS | Tidak tercapai |
+| **Exp_A_Standard** | **66.67%** | 53.06% | **59.09%** | **52.04 ms** | **19.21 FPS** | Tidak tercapai |
+| **Exp_B_CLAHE** | 48.72% | **67.86%** | 56.72% | 54.67 ms | 18.29 FPS | Tidak tercapai |
+| **Exp_C_Gamma** | **64.10%** | 45.45% | 53.19% | 54.25 ms | 18.43 FPS | Tidak tercapai |
+
+> Catatan: kolom *preprocessing* pada laporan benchmark (1.9–2.7 ms) adalah preprocessing
+> internal Ultralytics (resize/normalize), **bukan** CLAHE/Gamma. Biaya enhancement
+> end-to-end belum diukur. Semua varian berada di bawah target 20 FPS.
 
 ---
 
@@ -105,6 +143,7 @@ Split baru ini **0 scene bocor** dan test set menjadi **2× lebih besar** (39 �
 ├── results/                   # Laporan metrik kuantitatif dan visualisasi
 │   ├── audit/                 # Audit dataset, bias, leakage, laporan split bebas-leakage
 │   ├── experiments/           # Benchmark latensi, unified results, run manifest
+│   │   └── METRICS_RECONCILIATION.md  # Sumber kebenaran metrik (macro vs per-kelas)
 │   ├── freeze/                # Manifest beku artefak (SHA-256)
 │   ├── preprocessing/         # Komparasi visual Original vs CLAHE vs Gamma
 │   └── proposal/              # Matriks kandidat, diagram pipeline, desain eksperimen
@@ -120,9 +159,10 @@ Split baru ini **0 scene bocor** dan test set menjadi **2× lebih besar** (39 �
 │   ├── benchmark_inference.py # Benchmark latensi, FPS, dan akurasi CPU
 │   ├── prepare_experiments.py # Dataset generator CLAHE & Gamma (anti-leakage)
 │   ├── preprocessing.py       # Fungsi transformasi CLAHE LAB & Gamma LUT
+│   ├── reconcile_metrics.py   # Rekonsiliasi metrik macro vs per-kelas (tanpa GPU)
 │   ├── freeze_artifacts.py    # Beku artefak + deteksi perubahan
 │   └── build_candidate_matrix.py, collect_references.py, render_pipeline_diagram.py
-├── tests/                     # Unit test pytest (metrics, scene utils)
+├── tests/                     # Unit test pytest (metrics, scene utils, failure analysis, reconciliation)
 ├── GEMINI.md                  # Panduan teknis & standar clean code proyek
 ├── README.md                  # Dokumentasi utama proyek
 └── .gitignore                 # Konfigurasi pengabaian berkas biner/besar
@@ -183,6 +223,10 @@ Menghasilkan satu tabel untuk seluruh model pada split yang sama, dilengkapi int
 ```bash
 python src/evaluate_experiments.py --split test --dataset-root dataset_dedup
 ```
+
+> **Catatan metrik:** jalankan `python src/reconcile_metrics.py` setelah evaluasi untuk
+> menghasilkan `results/experiments/METRICS_RECONCILIATION.md`, yang memisahkan
+> macro recall (semua kelas) dari recall `person` per-kelas.
 
 ### 7. Beku Artefak & Deteksi Perubahan (CP06/CP13)
 

@@ -10,30 +10,40 @@
     {
       "experiment_id": "B0",
       "name": "Zero-Shot Baseline (COCO)",
-      "recall_person": 0.391000,
-      "map50": 0.380000,
-      "delta_recall": 0.0
+      "recall_person": 0.391,
+      "map50": 0.38,
+      "delta_recall": 0.0,
+      "metric_type": "person_recall_valid",
+      "metric_source": "evaluate_baseline.py at conf 0.25"
     },
     {
       "experiment_id": "Exp-A",
       "name": "Standard Fine-Tuned",
       "recall_person": 0.732823,
-      "map50": 0.781240,
-      "delta_recall": 0.341823
+      "map50": 0.78124,
+      "delta_recall": 0.341823,
+      "metric_type": "macro_recall_all_classes",
+      "metric_source": "ultralytics metrics/recall(B) at max-F1"
     },
     {
       "experiment_id": "Exp-B",
       "name": "Proposed L-channel CLAHE",
-      "recall_person": 0.692670,
+      "recall_person": 0.69267,
       "map50": 0.777252,
-      "delta_recall": 0.301670
+      "delta_recall": 0.30167,
+      "metric_type": "macro_recall_all_classes",
+      "metric_source": "ultralytics metrics/recall(B) at max-F1"
     },
     {
       "experiment_id": "Exp-C",
       "name": "Proposed Gamma Correction",
       "recall_person": 0.734092,
       "map50": 0.741687,
-      "delta_recall": 0.343092
+      "delta_recall": 0.343092,
+      "metric_type": "macro_recall_all_classes",
+      "metric_source": "ultralytics metrics/recall(B) at max-F1"
     }
-  ]
+  ],
+  "metric_warning": "Field recall_person is legacy and stores Ultralytics metrics/recall(B), which is the macro recall over all classes, not the person class. B0 recall_person is person recall from evaluate_baseline.py. Do not mix them. See METRICS_RECONCILIATION.md.",
+  "delta_recall_warning": "Legacy delta_recall mixes macro recall (Exp-A/B/C) with B0 person recall, so it is not valid. Use the per-class deltas in METRICS_RECONCILIATION.md instead."
 }

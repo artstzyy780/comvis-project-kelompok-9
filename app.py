@@ -172,16 +172,36 @@ def run_inference(
 
     start_time: float = time.perf_counter()
     if enable_tracking:
-        results = model.track(
-            source=image_rgb,
-            persist=True,
-            tracker="bytetrack.yaml",
-            conf=effective_conf,
-            iou=iou_threshold,
-            imgsz=640,
-            device="cpu",
-            verbose=False,
-        )
+        try:
+            results = model.track(
+                source=image_rgb,
+                persist=True,
+                tracker="bytetrack.yaml",
+                conf=effective_conf,
+                iou=iou_threshold,
+                imgsz=640,
+                device="cpu",
+                verbose=False,
+            )
+        except (ImportError, OSError) as exc:
+            # ByteTrack needs the native 'lap' solver. On machines where that
+            # extension is blocked (e.g. Windows Application Control / Smart App
+            # Control), degrade to plain detection instead of crashing the app.
+            enable_tracking = False
+            if not st.session_state.get("tracking_fallback_warned"):
+                st.session_state["tracking_fallback_warned"] = True
+                st.warning(
+                    "🎯 ByteTrack tidak aktif di mesin ini karena paket `lap` tidak "
+                    f"dapat dimuat ({exc}). Deteksi tetap berjalan tanpa Track ID."
+                )
+            results = model.predict(
+                source=image_rgb,
+                conf=effective_conf,
+                iou=iou_threshold,
+                imgsz=640,
+                device="cpu",
+                verbose=False,
+            )
     else:
         results = model.predict(
             source=image_rgb,
@@ -279,6 +299,7 @@ def run_inference(
         "detections": detections_list,
         "illumination_profile": illum_profile,
         "effective_conf": effective_conf,
+        "tracking_active": enable_tracking,
     }
     return annotated, diagnostics
 
@@ -484,12 +505,7 @@ def process_video_feed(
                 enable_tracking=enable_tracking,
             )
             frame_ph_p.image(annotated_p, use_container_width=True)
-            metric_ph_p.markdown(
-                f"**🚶 Pedestrian:** `{diag_p['person_count']}` | "
-                f"**🚗 Kendaraan:** `{diag_p['vehicle_count']}` | "
-                f"**⏱️ Latensi:** `{diag_p['latency_ms']:.1f} ms` | "
-                f"**⚡ FPS:** `{diag_p['fps']:.1f}`" + (" | 🎯 `ByteTrack`" if enable_tracking else "")
-            )
+            metric_ph_p.markdown(build_stream_metrics_text(diag_p))
 
             if enable_comparison and spec_s and secondary_model:
                 annotated_s, diag_s = run_inference(
@@ -502,16 +518,152 @@ def process_video_feed(
                     enable_tracking=enable_tracking,
                 )
                 frame_ph_s.image(annotated_s, use_container_width=True)
-                metric_ph_s.markdown(
-                    f"**🚶 Pedestrian:** `{diag_s['person_count']}` | "
-                    f"**🚗 Kendaraan:** `{diag_s['vehicle_count']}` | "
-                    f"**⏱️ Latensi:** `{diag_s['latency_ms']:.1f} ms` | "
-                    f"**⚡ FPS:** `{diag_s['fps']:.1f}`"
-                )
+                metric_ph_s.markdown(build_stream_metrics_text(diag_s))
 
             time.sleep(0.01)
     finally:
         cap.release()
+
+
+# ----------------------------------------------------------------------------
+# Live Webcam (non-blocking)
+# ----------------------------------------------------------------------------
+def open_camera_device(index: int) -> cv2.VideoCapture:
+    """Open a webcam using the most reliable backend for this platform.
+
+    On Windows the OpenCV default (MSMF) often fails or takes seconds to open
+    when the device was recently used by another app, so DirectShow is tried
+    first and the remaining backends act as fallbacks.
+    """
+    backends = (
+        [cv2.CAP_DSHOW, cv2.CAP_MSMF, cv2.CAP_ANY] if os.name == "nt" else [cv2.CAP_ANY]
+    )
+    for backend in backends:
+        cap = cv2.VideoCapture(index, backend)
+        if not cap.isOpened():
+            cap.release()
+            continue
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        # The first read is frequently empty while the sensor wakes up.
+        cap.read()
+        return cap
+    return cv2.VideoCapture()
+
+
+def release_camera_device() -> None:
+    """Release the webcam held in session state so the device is not locked."""
+    cap = st.session_state.pop("live_cam_cap", None)
+    st.session_state.pop("live_cam_index", None)
+    if cap is not None:
+        try:
+            cap.release()
+        except Exception:
+            pass
+
+
+def build_stream_metrics_text(diag: Dict[str, Any]) -> str:
+    """Format the per-frame metrics line shown under a live preview."""
+    text = (
+        f"**🚶 Pedestrian:** `{diag['person_count']}` | "
+        f"**🚗 Kendaraan:** `{diag['vehicle_count']}` | "
+        f"**⏱️ Latensi:** `{diag['latency_ms']:.1f} ms` | "
+        f"**⚡ FPS:** `{diag['fps']:.1f}`"
+    )
+    if diag.get("tracking_active"):
+        text += " | 🎯 `ByteTrack`"
+    return text
+
+
+@st.fragment(run_every=0.05)
+def render_live_camera(
+    cam_index: int,
+    primary_model: YOLO,
+    primary_model_key: str,
+    enable_comparison: bool,
+    secondary_model: Optional[YOLO],
+    secondary_model_key: Optional[str],
+    conf_threshold: float,
+    iou_threshold: float,
+    adaptive_threshold: bool = False,
+    enable_tracking: bool = True,
+) -> None:
+    """Render one webcam frame per fragment tick without blocking the script.
+
+    The previous implementation looped over ``cap.read()`` inside a normal
+    Streamlit run. A running script cannot process widget events, so the stop
+    button and the on/off toggle never responded and the camera stayed locked
+    forever. Pulling a single frame per fragment tick keeps the UI responsive.
+    """
+    cap = st.session_state.get("live_cam_cap")
+    if (
+        cap is None
+        or not cap.isOpened()
+        or st.session_state.get("live_cam_index") != cam_index
+    ):
+        release_camera_device()
+        cap = open_camera_device(cam_index)
+        st.session_state["live_cam_cap"] = cap
+        st.session_state["live_cam_index"] = cam_index
+
+    if not cap.isOpened():
+        st.error(
+            "❌ Tidak dapat membuka kamera. Tutup aplikasi lain yang memakai kamera "
+            "(Zoom/Teams/Camera), lalu matikan dan nyalakan kembali toggle di atas."
+        )
+        return
+
+    ret, frame_bgr = cap.read()
+    if not ret:
+        st.caption("⏳ Menunggu frame dari kamera...")
+        return
+
+    frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
+    spec_p = MODEL_REGISTRY[primary_model_key]
+
+    if enable_comparison and secondary_model and secondary_model_key:
+        spec_s = MODEL_REGISTRY[secondary_model_key]
+        col_left, col_right = st.columns(2)
+        with col_left:
+            st.markdown(f"**🔹 {spec_p['name']}**")
+            annotated_p, diag_p = run_inference(
+                primary_model,
+                frame_rgb,
+                spec_p["is_zero_shot"],
+                conf_threshold,
+                iou_threshold,
+                adaptive_threshold=adaptive_threshold,
+                enable_tracking=enable_tracking,
+            )
+            st.image(annotated_p, use_container_width=True)
+            st.markdown(build_stream_metrics_text(diag_p))
+        with col_right:
+            st.markdown(f"**🔸 {spec_s['name']}**")
+            annotated_s, diag_s = run_inference(
+                secondary_model,
+                frame_rgb,
+                spec_s["is_zero_shot"],
+                conf_threshold,
+                iou_threshold,
+                adaptive_threshold=adaptive_threshold,
+                enable_tracking=enable_tracking,
+            )
+            st.image(annotated_s, use_container_width=True)
+            st.markdown(build_stream_metrics_text(diag_s))
+    else:
+        st.markdown(f"**🎯 {spec_p['name']}**")
+        annotated_p, diag_p = run_inference(
+            primary_model,
+            frame_rgb,
+            spec_p["is_zero_shot"],
+            conf_threshold,
+            iou_threshold,
+            adaptive_threshold=adaptive_threshold,
+            enable_tracking=enable_tracking,
+        )
+        st.image(annotated_p, use_container_width=True)
+        st.markdown(build_stream_metrics_text(diag_p))
 
 
 # ----------------------------------------------------------------------------
@@ -643,6 +795,7 @@ def main() -> None:
         )
 
         image_rgb: Optional[np.ndarray] = None
+        start_webcam: bool = False
 
         if input_source == "Pilih Sampel Test Set (Citra Malam)":
             selected_preset_label = st.selectbox(
@@ -685,7 +838,11 @@ def main() -> None:
                     step=1,
                     help="Index 0 adalah kamera utama/bawaan laptop.",
                 )
-                start_webcam = st.toggle("🔴 Aktifkan Kamera Laptop", value=False)
+                start_webcam = st.toggle(
+                    "🔴 Aktifkan Kamera Laptop",
+                    value=False,
+                    key="live_cam_toggle",
+                )
             with cam_col2:
                 st.caption(
                     "Tips: Pastikan tidak ada aplikasi lain yang sedang mengunci kamera (Zoom, Teams, dsb). "
@@ -700,8 +857,8 @@ def main() -> None:
                     else None
                 )
                 if primary_model:
-                    process_video_feed(
-                        video_source=int(cam_idx),
+                    render_live_camera(
+                        cam_index=int(cam_idx),
                         primary_model=primary_model,
                         primary_model_key=primary_model_key,
                         enable_comparison=enable_comparison,
@@ -709,8 +866,6 @@ def main() -> None:
                         secondary_model_key=secondary_model_key,
                         conf_threshold=conf_threshold,
                         iou_threshold=iou_threshold,
-                        frame_skip=1,
-                        is_live_camera=True,
                         adaptive_threshold=enable_adaptive_conf,
                         enable_tracking=enable_temporal_tracking,
                     )
@@ -768,6 +923,10 @@ def main() -> None:
                             os.remove(temp_video_path)
                     except OSError:
                         pass
+
+        # Kamera hanya boleh terbuka selama mode live benar-benar aktif.
+        if not (input_source == "Live Kamera Laptop (Webcam Real-Time)" and start_webcam):
+            release_camera_device()
 
         # Static Image Rendering (Presets, Uploaded Image, or Snapshot Webcam)
         if image_rgb is not None:

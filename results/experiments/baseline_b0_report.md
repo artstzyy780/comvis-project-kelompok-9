@@ -30,7 +30,7 @@
    - Angka Recall pejalan kaki yang rendah pada model bawaan COCO ini membuktikan secara empiris bahwa model deteksi siang hari mengalami degradasi berat di malam hari.
    - Hasil ini menjadi acuan dasar (*baseline*) kuat yang akan ditingkatkan melalui **Fine-tuning (Exp-A)** dan **Augmentasi Pencahayaan Adaptif (Exp-B CLAHE & Exp-C Gamma)** pada tahap selanjutnya.
 3. **Efisiensi Perangkat Keras CPU**:
-   - Arsitektur YOLOv8n mencatat kecepatan **11.53 FPS** (86.75 ms/frame) pada CPU standar, membuktikan kelayakan target real-time ($\ge 20$ FPS).
+   - Arsitektur YOLOv8n mencatat kecepatan **11.53 FPS** (86.75 ms/frame) pada CPU standar. Angka ini **belum memenuhi** target real-time 20 FPS; optimasi deployment masih diperlukan.
 
 ---
 *(Laporan ini dihasilkan secara otomatis oleh `src/evaluate_baseline.py`)*

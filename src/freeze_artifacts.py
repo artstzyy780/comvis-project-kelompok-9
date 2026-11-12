@@ -50,6 +50,7 @@ REQUIRED_ARTIFACTS: Tuple[Tuple[str, str], ...] = (
     ("results/audit/audit_report.md", "CP03 - Laporan audit dataset"),
     ("results/audit/dedup_split_report.md", "CP07 - Split bebas-leakage (scene level)"),
     ("results/experiments/unified_results.md", "CP10 - Tabel hasil terpadu (satu split)"),
+    ("results/experiments/METRICS_RECONCILIATION.md", "CP10 - Rekonsiliasi metrik macro vs per-kelas"),
     ("results/experiments/benchmark_latency_report.md", "CP12 - Benchmark latensi & FPS"),
     ("README.md", "CP13 - README final"),
 )

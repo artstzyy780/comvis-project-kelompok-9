@@ -8,20 +8,20 @@
 
 | CP | XP | Perintah | Berkas Bukti | Status Kode |
 |:--:|:--:|:---|:---|:---:|
-| CP00 | 3 | (manual) kontrak kerja 4 anggota | `docs/proposal/CONTRIBUTING.md` | 🔴 perlu dibuat |
+| CP00 | 3 | (manual) kontrak kerja 4 anggota | `docs/proposal/CONTRIBUTING.md` | ✅ |
 | CP01 | 4 | `python src/build_candidate_matrix.py` | `results/proposal/candidate_matrix.md` | ✅ |
 | CP02 | 6 | `python src/collect_references.py` | `docs/proposal/references.md`, `references.bib` | ✅ |
 | CP03 | 6 | `python src/audit_dataset.py` | `results/audit/audit_report.md` | ✅ (versi baru: bias + leakage + rencana split) |
 | CP04 | 6 | `python src/evaluate_baseline.py --split valid` | `results/experiments/baseline_b0_report.md` | ✅ |
 | CP05 | 7 | `python src/render_pipeline_diagram.py` | `results/proposal/pipeline_diagram.png`, `experiment_design.md` | ✅ |
-| CP06 | 8 | `python src/freeze_artifacts.py` | `results/freeze/frozen_artifacts.md` | ✅ |
+| CP06 | 8 | `python src/freeze_artifacts.py` | `results/freeze/frozen_artifacts.md` | 🟡 perlu re-freeze setelah edit laporan |
 | CP07 | 7 | `python src/rebuild_split_dedup.py` | `results/audit/dedup_split_report.md`, `dataset_dedup/split_manifest.json` | ✅ (baru) |
-| CP08 | 8 | `python src/train.py --experiment Exp_A_Standard` | `results/experiments/runs/Exp_A_Standard/run_manifest.json` | ✅ (baru) |
-| CP09 | 9 | `python src/train.py --all` | `results/experiments/runs/*/run_manifest.json` | ✅ (baru) |
-| CP10 | 10 | `python src/evaluate_experiments.py --split test` | `results/experiments/unified_results.md` | ✅ (baru) |
-| CP11 | 10 | `python src/analyze_failures.py --weights <best.pt>` | `results/experiments/failure_cases.md`, `failure_cases.png` | ✅ (baru) |
-| CP12 | 7 | `python src/benchmark_inference.py` + `python app.py` | `results/experiments/benchmark_latency_report.md` | ✅ / 🔴 demo app belum ada |
-| CP13 | 9 | `python src/freeze_artifacts.py --check` | `results/freeze/artifact_manifest.json` | ✅ |
+| CP08 | 8 | `python src/train.py --experiment Exp_A_Standard` | `results/experiments/runs/Exp_A_Standard/run_manifest.json` | 🟡 kode siap, manifest run belum ada |
+| CP09 | 9 | `python src/train.py --all` | `results/experiments/runs/*/run_manifest.json` | 🟡 kode siap, manifest run belum ada |
+| CP10 | 10 | `python src/evaluate_experiments.py --split test` | `results/experiments/unified_results.md` | 🔴 output belum ada |
+| CP11 | 10 | `python src/analyze_failures.py --weights <best.pt>` | `results/experiments/failure_cases.md`, `failure_cases.png` | 🔴 output belum ada |
+| CP12 | 7 | `python src/benchmark_inference.py` + `python app.py` | `results/experiments/benchmark_latency_report.md` | 🟡 benchmark ada; demo app belum ada |
+| CP13 | 9 | `python src/freeze_artifacts.py --check` | `results/freeze/artifact_manifest.json` | 🟡 3 artefak berubah/baru; perlu re-freeze |
 
 ---
 
@@ -29,7 +29,7 @@
 
 ```bash
 pip install -r requirements.txt
-python -m pytest tests -q            # 32 unit test harus lolos
+python -m pytest tests -q            # seluruh unit test harus lolos
 ```
 
 ## 2. Rantai Audit & Data (CP03, CP07)
@@ -66,6 +66,12 @@ python src/train.py --all
 
 Setiap run menyimpan `run_manifest.json` berisi hyper-parameter, seed, versi
 library, commit Git, durasi, dan metrik **per-kelas** (bukan macro-average).
+
+> **Status bukti:** run yang dilaporkan saat ini dijalankan dari
+> `notebooks/K09_DeteksiPedestrian_Colab_Training.ipynb`, sehingga
+> `run_manifest.json` belum terbentuk. Jalankan ulang lewat `src/train.py` agar
+> bukti CP08/CP09 lengkap. Rekonsiliasi macro vs per-kelas ada di
+> `results/experiments/METRICS_RECONCILIATION.md`.
 
 ## 4. Evaluasi Terpadu (CP10)
 

@@ -32,6 +32,8 @@ from ultralytics import YOLO
 from src.adaptive_postprocessing import (
     AdaptiveIlluminationProfile,
     compute_adaptive_illumination_profile,
+    fuse_dual_prior_detections,
+    is_glare_artifact_box,
 )
 
 # ----------------------------------------------------------------------------
@@ -146,6 +148,7 @@ def run_inference(
     iou_threshold: float,
     adaptive_threshold: bool = False,
     enable_tracking: bool = False,
+    dual_prior_model: Optional[YOLO] = None,
 ) -> Tuple[np.ndarray, Dict[str, Any]]:
     """Execute forward inference or tracking and render bounding boxes onto an image.
 
@@ -157,18 +160,25 @@ def run_inference(
         iou_threshold: IoU NMS threshold.
         adaptive_threshold: Flag to enable luminance-aware dynamic thresholding.
         enable_tracking: Flag to activate ByteTrack temporal Kalman filter.
+        dual_prior_model: Optional generalist COCO model (B0) for complementary
+            out-of-distribution pedestrian recovery and consensus boosting.
 
     Returns:
         Annotated RGB image and a dictionary of inference diagnostics.
     """
     illum_profile: Optional[AdaptiveIlluminationProfile] = None
-    effective_conf: float = conf_threshold
+    vehicle_conf: float = conf_threshold
+    person_conf: float = conf_threshold
 
     if adaptive_threshold:
         illum_profile = compute_adaptive_illumination_profile(
             image_rgb, base_conf=conf_threshold, is_bgr=False
         )
-        effective_conf = illum_profile.effective_conf_threshold
+        vehicle_conf = illum_profile.effective_conf_threshold
+        person_conf = illum_profile.effective_person_conf
+
+    use_fusion: bool = (dual_prior_model is not None) and (not is_zero_shot)
+    query_conf: float = min(0.08, person_conf, vehicle_conf) if use_fusion else min(person_conf, vehicle_conf)
 
     start_time: float = time.perf_counter()
     if enable_tracking:
@@ -176,7 +186,7 @@ def run_inference(
             source=image_rgb,
             persist=True,
             tracker="bytetrack.yaml",
-            conf=effective_conf,
+            conf=query_conf,
             iou=iou_threshold,
             imgsz=640,
             device="cpu",
@@ -185,20 +195,14 @@ def run_inference(
     else:
         results = model.predict(
             source=image_rgb,
-            conf=effective_conf,
+            conf=query_conf,
             iou=iou_threshold,
             imgsz=640,
             device="cpu",
             verbose=False,
         )
-    latency_ms: float = (time.perf_counter() - start_time) * 1000.0
-    fps: float = 1000.0 / latency_ms if latency_ms > 0 else 0.0
 
-    annotated: np.ndarray = image_rgb.copy()
-    person_count: int = 0
-    vehicle_count: int = 0
-    detections_list: List[Dict[str, Any]] = []
-
+    specialist_raw: List[Dict[str, Any]] = []
     if results and len(results) > 0:
         boxes = results[0].boxes
         if boxes is not None and len(boxes) > 0:
@@ -212,63 +216,115 @@ def run_inference(
             )
 
             for idx, (xyxy, conf, raw_cls) in enumerate(zip(xyxy_arr, conf_arr, cls_arr)):
-                target_cls: Optional[int] = None
-                if is_zero_shot:
-                    target_cls = COCO_TO_TARGET_MAPPING.get(raw_cls)
-                else:
-                    if raw_cls in TARGET_CLASSES:
-                        target_cls = raw_cls
-
+                target_cls: Optional[int] = (
+                    COCO_TO_TARGET_MAPPING.get(raw_cls) if is_zero_shot else (raw_cls if raw_cls in TARGET_CLASSES else None)
+                )
                 if target_cls is None:
                     continue
-
-                if target_cls == 1:
-                    person_count += 1
-                elif target_cls == 0:
-                    vehicle_count += 1
-
-                x1, y1, x2, y2 = map(int, xyxy)
-                color = CLASS_COLORS[target_cls]
-
-                tid_str = f"ID:{track_ids[idx]} " if (track_ids is not None and idx < len(track_ids)) else ""
-                label_text = f"{tid_str}{TARGET_CLASSES[target_cls]} {conf:.2f}"
-
-                # Draw bounding box
-                cv2.rectangle(annotated, (x1, y1), (x2, y2), color, 2)
-
-                # Draw label background
-                font_scale = 0.5
-                thickness = 1
-                (text_w, text_h), baseline = cv2.getTextSize(
-                    label_text, cv2.FONT_HERSHEY_SIMPLEX, font_scale, thickness
-                )
-                label_y1 = max(0, y1 - text_h - 4)
-                cv2.rectangle(
-                    annotated,
-                    (x1, label_y1),
-                    (x1 + text_w + 6, label_y1 + text_h + 4),
-                    color,
-                    -1,
-                )
-                cv2.putText(
-                    annotated,
-                    label_text,
-                    (x1 + 3, label_y1 + text_h + 1),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    font_scale,
-                    (255, 255, 255),
-                    thickness,
-                    cv2.LINE_AA,
-                )
-
-                detections_list.append(
+                specialist_raw.append(
                     {
-                        "class": TARGET_CLASSES[target_cls],
+                        "class_id": int(target_cls),
                         "confidence": float(conf),
-                        "box": [x1, y1, x2, y2],
+                        "box": [float(v) for v in xyxy],
                         "track_id": int(track_ids[idx]) if (track_ids is not None and idx < len(track_ids)) else None,
                     }
                 )
+
+    if use_fusion and dual_prior_model is not None:
+        prior_results = dual_prior_model.predict(
+            source=image_rgb,
+            classes=[0],
+            conf=0.25,
+            iou=iou_threshold,
+            imgsz=640,
+            device="cpu",
+            verbose=False,
+        )
+        prior_persons: List[Dict[str, Any]] = []
+        if prior_results and len(prior_results) > 0 and prior_results[0].boxes is not None:
+            p_boxes = prior_results[0].boxes
+            for xyxy, conf in zip(p_boxes.xyxy.cpu().numpy(), p_boxes.conf.cpu().numpy()):
+                prior_persons.append({"confidence": float(conf), "box": [float(v) for v in xyxy]})
+
+        final_detections = fuse_dual_prior_detections(
+            specialist_detections=specialist_raw,
+            prior_person_detections=prior_persons,
+            person_conf_threshold=person_conf,
+            vehicle_conf_threshold=vehicle_conf,
+            image=image_rgb,
+        )
+    else:
+        final_detections = []
+        for det in specialist_raw:
+            cls_id = int(det["class_id"])
+            score = float(det["confidence"])
+            req_conf = person_conf if cls_id == 1 else vehicle_conf
+            if score < req_conf:
+                continue
+            if adaptive_threshold and cls_id == 1 and score < 0.25 and is_glare_artifact_box(image_rgb, det["box"]):
+                continue
+            final_detections.append({**det, "source": "specialist"})
+
+    latency_ms: float = (time.perf_counter() - start_time) * 1000.0
+    fps: float = 1000.0 / latency_ms if latency_ms > 0 else 0.0
+
+    annotated: np.ndarray = image_rgb.copy()
+    person_count: int = 0
+    vehicle_count: int = 0
+    detections_list: List[Dict[str, Any]] = []
+
+    for det in final_detections:
+        target_cls = int(det["class_id"])
+        conf = float(det["confidence"])
+        x1, y1, x2, y2 = map(int, det["box"])
+        track_id = det.get("track_id")
+
+        if target_cls == 1:
+            person_count += 1
+        elif target_cls == 0:
+            vehicle_count += 1
+
+        color = CLASS_COLORS[target_cls]
+        tid_str = f"ID:{track_id} " if track_id is not None else ""
+        label_text = f"{tid_str}{TARGET_CLASSES[target_cls]} {conf:.2f}"
+
+        # Draw bounding box
+        cv2.rectangle(annotated, (x1, y1), (x2, y2), color, 2)
+
+        # Draw label background
+        font_scale = 0.5
+        thickness = 1
+        (text_w, text_h), _ = cv2.getTextSize(
+            label_text, cv2.FONT_HERSHEY_SIMPLEX, font_scale, thickness
+        )
+        label_y1 = max(0, y1 - text_h - 4)
+        cv2.rectangle(
+            annotated,
+            (x1, label_y1),
+            (x1 + text_w + 6, label_y1 + text_h + 4),
+            color,
+            -1,
+        )
+        cv2.putText(
+            annotated,
+            label_text,
+            (x1 + 3, label_y1 + text_h + 1),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            font_scale,
+            (255, 255, 255),
+            thickness,
+            cv2.LINE_AA,
+        )
+
+        detections_list.append(
+            {
+                "class": TARGET_CLASSES[target_cls],
+                "confidence": conf,
+                "box": [x1, y1, x2, y2],
+                "track_id": track_id,
+                "source": det.get("source", "specialist"),
+            }
+        )
 
     diagnostics: Dict[str, Any] = {
         "latency_ms": latency_ms,
@@ -278,7 +334,8 @@ def run_inference(
         "total_detections": person_count + vehicle_count,
         "detections": detections_list,
         "illumination_profile": illum_profile,
-        "effective_conf": effective_conf,
+        "effective_conf": person_conf,
+        "effective_vehicle_conf": vehicle_conf,
     }
     return annotated, diagnostics
 
@@ -296,6 +353,7 @@ def render_static_detection(
     conf_threshold: float,
     iou_threshold: float,
     adaptive_threshold: bool = False,
+    dual_prior_model: Optional[YOLO] = None,
 ) -> None:
     """Render detection results on a static image with optional side-by-side view.
 
@@ -317,7 +375,8 @@ def render_static_detection(
             f"💡 **Profil Pencahayaan Adaptif:** {prof_check.mode_label} | "
             f"Rerata Luminansi: **{prof_check.luminance:.1f} L* / 100** | "
             f"Rasio Glare: **{prof_check.glare_ratio * 100:.2f}%** | "
-            f"Ambang Terkoreksi: **{prof_check.effective_conf_threshold:.2f}** (Base: {conf_threshold:.2f})"
+            f"Ambang Person: **{prof_check.effective_person_conf:.2f}** | "
+            f"Ambang Vehicle: **{prof_check.effective_conf_threshold:.2f}** (Base: {conf_threshold:.2f})"
         )
 
     if enable_comparison and secondary_model_key and secondary_model:
@@ -336,6 +395,7 @@ def render_static_detection(
                 iou_threshold,
                 adaptive_threshold=adaptive_threshold,
                 enable_tracking=False,
+                dual_prior_model=dual_prior_model,
             )
             st.image(annotated_p, use_container_width=True)
 
@@ -393,6 +453,7 @@ def render_static_detection(
             iou_threshold,
             adaptive_threshold=adaptive_threshold,
             enable_tracking=False,
+            dual_prior_model=dual_prior_model,
         )
         st.image(annotated_img, use_container_width=True)
 
@@ -416,6 +477,7 @@ def process_video_feed(
     is_live_camera: bool = False,
     adaptive_threshold: bool = False,
     enable_tracking: bool = True,
+    dual_prior_model: Optional[YOLO] = None,
 ) -> None:
     """Stream and infer video frames in real-time with UI metrics updates.
 
@@ -482,6 +544,7 @@ def process_video_feed(
                 iou_threshold,
                 adaptive_threshold=adaptive_threshold,
                 enable_tracking=enable_tracking,
+                dual_prior_model=dual_prior_model,
             )
             frame_ph_p.image(annotated_p, use_container_width=True)
             metric_ph_p.markdown(
@@ -595,12 +658,20 @@ def main() -> None:
     st.sidebar.markdown("---")
     st.sidebar.subheader("🔬 Peningkatan Algoritmik (CP12+)")
     enable_adaptive_conf = st.sidebar.checkbox(
-        "💡 Ambang Batas Adaptif (Luminance-Aware)",
-        value=False,
+        "💡 Ambang Batas Adaptif (Class-Specific)",
+        value=True,
         help=(
             "Menghitung luminansi L* dan rasio silau (glare) secara otomatis. "
-            "Pada area gelap, ambang diturunkan (0.18-0.20) untuk mengangkat Recall; "
-            "pada area silau lampu, ambang dinaikkan (0.35) untuk menekan False Positive."
+            "Pada area gelap, ambang khusus person diturunkan (0.12-0.18) untuk mengangkat Recall, "
+            "sementara ambang Vehicle tetap terjaga dan artefak glare disaring."
+        ),
+    )
+    enable_dual_prior = st.sidebar.checkbox(
+        "🛡️ Dual-Prior Person Fusion (Anti-OOD)",
+        value=True,
+        help=(
+            "Menggabungkan model spesialis malam (Exp_D) dengan prior generalis COCO (B0) "
+            "untuk memulihkan pejalan kaki pada sudut pandang trotoar/close-up."
         ),
     )
     enable_temporal_tracking = st.sidebar.checkbox(
@@ -700,6 +771,7 @@ def main() -> None:
                     else None
                 )
                 if primary_model:
+                    prior_model = load_yolo_model("B0_ZeroShot") if enable_dual_prior else None
                     process_video_feed(
                         video_source=int(cam_idx),
                         primary_model=primary_model,
@@ -713,6 +785,7 @@ def main() -> None:
                         is_live_camera=True,
                         adaptive_threshold=enable_adaptive_conf,
                         enable_tracking=enable_temporal_tracking,
+                        dual_prior_model=prior_model,
                     )
 
         elif input_source == "Unggah Berkas Video (MP4/AVI/MOV)":
@@ -747,6 +820,7 @@ def main() -> None:
                         else None
                     )
                     if primary_model:
+                        prior_model = load_yolo_model("B0_ZeroShot") if enable_dual_prior else None
                         process_video_feed(
                             video_source=temp_video_path,
                             primary_model=primary_model,
@@ -760,6 +834,7 @@ def main() -> None:
                             is_live_camera=False,
                             adaptive_threshold=enable_adaptive_conf,
                             enable_tracking=enable_temporal_tracking,
+                            dual_prior_model=prior_model,
                         )
 
                 if not start_video:
@@ -780,6 +855,7 @@ def main() -> None:
             )
 
             if primary_model:
+                prior_model = load_yolo_model("B0_ZeroShot") if enable_dual_prior else None
                 render_static_detection(
                     image_rgb=image_rgb,
                     primary_model=primary_model,
@@ -790,6 +866,7 @@ def main() -> None:
                     conf_threshold=conf_threshold,
                     iou_threshold=iou_threshold,
                     adaptive_threshold=enable_adaptive_conf,
+                    dual_prior_model=prior_model,
                 )
 
     # ------------------------------------------------------------------------

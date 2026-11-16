@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import os
 import tempfile
+import threading
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -31,7 +32,9 @@ from ultralytics import YOLO
 
 from src.adaptive_postprocessing import (
     AdaptiveIlluminationProfile,
+    PedestrianWarningStatus,
     compute_adaptive_illumination_profile,
+    evaluate_pedestrian_warning,
     fuse_dual_prior_detections,
     is_glare_artifact_box,
 )
@@ -108,6 +111,8 @@ CLASS_COLORS: Dict[int, Tuple[int, int, int]] = {
 STATIC_INFERENCE_SIZE: int = 640
 STREAM_INFERENCE_SIZE: int = 480
 STREAM_JPEG_QUALITY: int = 85
+ALERT_TOAST_COOLDOWN_SEC: float = 4.0
+ALERT_BEEP_COOLDOWN_SEC: float = 2.5
 
 SAMPLE_PRESETS: List[Tuple[str, str]] = [
     ("Pejalan Kaki Siluet Gelap (Scene 14969583)", "14969583-55cd5dd2_augmented_1_jpg.rf.47834ba812a385f88105c1a8e60ef8f9.jpg"),
@@ -180,6 +185,83 @@ def open_video_or_camera_source(video_source: Any, is_live_camera: bool) -> cv2.
     if not is_live_camera or not isinstance(video_source, int):
         return cv2.VideoCapture(video_source)
 
+
+def render_adas_hud_overlay(
+    image_rgb: np.ndarray,
+    warning: PedestrianWarningStatus,
+) -> np.ndarray:
+    """Draw a lightweight semi-transparent ADAS alert header onto the frame.
+
+    Args:
+        image_rgb: Annotated RGB image array (H, W, 3).
+        warning: Evaluated PedestrianWarningStatus for the frame.
+
+    Returns:
+        RGB image with top HUD alert banner when pedestrians are detected.
+    """
+    if warning.level == "safe":
+        return image_rgb
+
+    h, w = image_rgb.shape[:2]
+    bar_h = min(38, max(26, int(h * 0.07)))
+    banner_color = (210, 30, 30) if warning.level == "critical" else (225, 125, 0)
+
+    roi = image_rgb[:bar_h, :w]
+    overlay = np.full_like(roi, banner_color)
+    image_rgb[:bar_h, :w] = cv2.addWeighted(overlay, 0.72, roi, 0.28, 0)
+
+    cv2.putText(
+        image_rgb,
+        f"[!] {warning.title}",
+        (10, int(bar_h * 0.68)),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.58 if w >= 480 else 0.44,
+        (255, 255, 255),
+        2,
+        cv2.LINE_AA,
+    )
+    return image_rgb
+
+
+def trigger_nonblocking_beep(level: str) -> None:
+    """Play a non-blocking Windows system beep when pedestrians are detected.
+
+    Args:
+        level: Alert severity ('caution' or 'critical').
+    """
+    if os.name != "nt" or level == "safe":
+        return
+
+    def _play() -> None:
+        try:
+            import winsound
+
+            freq = 1200 if level == "critical" else 850
+            dur = 180 if level == "critical" else 110
+            winsound.Beep(freq, dur)
+        except Exception:
+            pass
+
+    threading.Thread(target=_play, daemon=True).start()
+
+
+def render_adas_alert_banner(
+    container: Any,
+    warning: PedestrianWarningStatus,
+) -> None:
+    """Render a Streamlit alert banner matching the pedestrian warning severity.
+
+    Args:
+        container: Streamlit module (`st`) or placeholder (`st.empty()`).
+        warning: Evaluated PedestrianWarningStatus.
+    """
+    if warning.level == "critical":
+        container.error(f"🚨 **{warning.message}**")
+    elif warning.level == "caution":
+        container.warning(f"⚠️ **{warning.message}**")
+    else:
+        container.success(f"🟢 **{warning.message}**")
+
     backends = (
         [cv2.CAP_DSHOW, cv2.CAP_MSMF, cv2.CAP_ANY] if os.name == "nt" else [cv2.CAP_ANY]
     )
@@ -198,6 +280,83 @@ def open_video_or_camera_source(video_source: Any, is_live_camera: bool) -> cv2.
     return cv2.VideoCapture(video_source)
 
 
+def render_adas_hud_overlay(
+    image_rgb: np.ndarray,
+    warning: PedestrianWarningStatus,
+) -> np.ndarray:
+    """Draw a lightweight semi-transparent ADAS alert header onto the frame.
+
+    Args:
+        image_rgb: Annotated RGB image array (H, W, 3).
+        warning: Evaluated PedestrianWarningStatus for the frame.
+
+    Returns:
+        RGB image with top HUD alert banner when pedestrians are detected.
+    """
+    if warning.level == "safe":
+        return image_rgb
+
+    h, w = image_rgb.shape[:2]
+    bar_h = min(38, max(26, int(h * 0.07)))
+    banner_color = (210, 30, 30) if warning.level == "critical" else (225, 125, 0)
+
+    roi = image_rgb[:bar_h, :w]
+    overlay = np.full_like(roi, banner_color)
+    image_rgb[:bar_h, :w] = cv2.addWeighted(overlay, 0.72, roi, 0.28, 0)
+
+    cv2.putText(
+        image_rgb,
+        f"[!] {warning.title}",
+        (10, int(bar_h * 0.68)),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.58 if w >= 480 else 0.44,
+        (255, 255, 255),
+        2,
+        cv2.LINE_AA,
+    )
+    return image_rgb
+
+
+def trigger_nonblocking_beep(level: str) -> None:
+    """Play a non-blocking Windows system beep when pedestrians are detected.
+
+    Args:
+        level: Alert severity ('caution' or 'critical').
+    """
+    if os.name != "nt" or level == "safe":
+        return
+
+    def _play() -> None:
+        try:
+            import winsound
+
+            freq = 1200 if level == "critical" else 850
+            dur = 180 if level == "critical" else 110
+            winsound.Beep(freq, dur)
+        except Exception:
+            pass
+
+    threading.Thread(target=_play, daemon=True).start()
+
+
+def render_adas_alert_banner(
+    container: Any,
+    warning: PedestrianWarningStatus,
+) -> None:
+    """Render a Streamlit alert banner matching the pedestrian warning severity.
+
+    Args:
+        container: Streamlit module (`st`) or placeholder (`st.empty()`).
+        warning: Evaluated PedestrianWarningStatus.
+    """
+    if warning.level == "critical":
+        container.error(f"🚨 **{warning.message}**")
+    elif warning.level == "caution":
+        container.warning(f"⚠️ **{warning.message}**")
+    else:
+        container.success(f"🟢 **{warning.message}**")
+
+
 # ----------------------------------------------------------------------------
 # Inference & Annotation Engine
 # ----------------------------------------------------------------------------
@@ -212,6 +371,7 @@ def run_inference(
     dual_prior_model: Optional[YOLO] = None,
     imgsz: int = STATIC_INFERENCE_SIZE,
     precomputed_prior_persons: Optional[List[Dict[str, Any]]] = None,
+    enable_warning_hud: bool = False,
 ) -> Tuple[np.ndarray, Dict[str, Any]]:
     """Execute forward inference or tracking and render bounding boxes onto an image.
 
@@ -411,6 +571,12 @@ def run_inference(
             }
         )
 
+    warning_status = evaluate_pedestrian_warning(
+        detections_list, frame_height=annotated.shape[0]
+    )
+    if enable_warning_hud:
+        annotated = render_adas_hud_overlay(annotated, warning_status)
+
     diagnostics: Dict[str, Any] = {
         "latency_ms": latency_ms,
         "fps": fps,
@@ -421,6 +587,7 @@ def run_inference(
         "illumination_profile": illum_profile,
         "effective_conf": person_conf,
         "effective_vehicle_conf": vehicle_conf,
+        "warning_status": warning_status,
         "raw_person_boxes": [
             {"confidence": float(d["confidence"]), "box": list(d["box"])}
             for d in specialist_raw
@@ -444,6 +611,8 @@ def render_static_detection(
     iou_threshold: float,
     adaptive_threshold: bool = False,
     dual_prior_model: Optional[YOLO] = None,
+    enable_pedestrian_alert: bool = True,
+    enable_audio_alert: bool = False,
 ) -> None:
     """Render detection results on a static image with optional side-by-side view.
 
@@ -501,7 +670,15 @@ def render_static_detection(
                 enable_tracking=False,
                 dual_prior_model=None if shared_prior is not None else dual_prior_model,
                 precomputed_prior_persons=shared_prior,
+                enable_warning_hud=enable_pedestrian_alert,
             )
+            if enable_pedestrian_alert:
+                warning_p: PedestrianWarningStatus = diag_p["warning_status"]
+                render_adas_alert_banner(st, warning_p)
+                if warning_p.level != "safe":
+                    st.toast(warning_p.message, icon="🚨" if warning_p.level == "critical" else "⚠️")
+                    if enable_audio_alert:
+                        trigger_nonblocking_beep(warning_p.level)
             st.image(annotated_p, use_container_width=True)
 
             c1, c2, c3, c4 = st.columns(4)
@@ -550,7 +727,15 @@ def render_static_detection(
             adaptive_threshold=adaptive_threshold,
             enable_tracking=False,
             dual_prior_model=dual_prior_model,
+            enable_warning_hud=enable_pedestrian_alert,
         )
+        if enable_pedestrian_alert:
+            warning_p = diag["warning_status"]
+            render_adas_alert_banner(st, warning_p)
+            if warning_p.level != "safe":
+                st.toast(warning_p.message, icon="🚨" if warning_p.level == "critical" else "⚠️")
+                if enable_audio_alert:
+                    trigger_nonblocking_beep(warning_p.level)
         st.image(annotated_img, use_container_width=True)
 
         c1, c2, c3, c4 = st.columns(4)
@@ -574,6 +759,8 @@ def process_video_feed(
     adaptive_threshold: bool = False,
     enable_tracking: bool = True,
     dual_prior_model: Optional[YOLO] = None,
+    enable_pedestrian_alert: bool = True,
+    enable_audio_alert: bool = False,
 ) -> None:
     """Stream and infer video frames in real-time with UI metrics updates.
 
@@ -598,6 +785,7 @@ def process_video_feed(
         return
 
     stop_stream = st.button("⏹️ Hentikan Pemutaran / Siaran", key="stop_stream_btn")
+    alert_ph = st.empty() if enable_pedestrian_alert else None
 
     spec_p = MODEL_REGISTRY[primary_model_key]
     spec_s = MODEL_REGISTRY.get(secondary_model_key) if (enable_comparison and secondary_model_key) else None
@@ -618,6 +806,8 @@ def process_video_feed(
         metric_ph_p = st.empty()
 
     frame_counter: int = 0
+    last_toast_time: float = 0.0
+    last_beep_time: float = 0.0
     try:
         while cap.isOpened() and not stop_stream:
             ret, frame_bgr = cap.read()
@@ -661,7 +851,19 @@ def process_video_feed(
                 dual_prior_model=None if shared_prior is not None else dual_prior_model,
                 imgsz=STREAM_INFERENCE_SIZE,
                 precomputed_prior_persons=shared_prior,
+                enable_warning_hud=enable_pedestrian_alert,
             )
+            if enable_pedestrian_alert and alert_ph is not None:
+                warning_p: PedestrianWarningStatus = diag_p["warning_status"]
+                render_adas_alert_banner(alert_ph, warning_p)
+                now = time.monotonic()
+                if warning_p.level != "safe":
+                    if (now - last_toast_time) >= ALERT_TOAST_COOLDOWN_SEC:
+                        st.toast(warning_p.message, icon="🚨" if warning_p.level == "critical" else "⚠️")
+                        last_toast_time = now
+                    if enable_audio_alert and (now - last_beep_time) >= ALERT_BEEP_COOLDOWN_SEC:
+                        trigger_nonblocking_beep(warning_p.level)
+                        last_beep_time = now
             frame_ph_p.image(encode_rgb_to_jpeg_bytes(annotated_p), use_container_width=True)
             metric_ph_p.markdown(
                 f"**🚶 Pedestrian:** `{diag_p['person_count']}` | "
@@ -787,6 +989,20 @@ def main() -> None:
             "untuk menjaga kontinuitas deteksi dan menampilkan Track ID."
         ),
     )
+    enable_pedestrian_alert = st.sidebar.checkbox(
+        "🔔 Notifikasi Peringatan Pejalan Kaki (ADAS)",
+        value=True,
+        help=(
+            "Menampilkan HUD overlay, banner bahaya (Waspada vs Kritis jarak dekat), "
+            "dan popup toast saat pejalan kaki terdeteksi."
+        ),
+    )
+    enable_audio_alert = st.sidebar.checkbox(
+        "🔊 Bunyikan Alarm Suara (Beep)",
+        value=False,
+        disabled=not enable_pedestrian_alert,
+        help="Memutar bunyi peringatan non-blocking (cooldown 2.5 dtk) saat pejalan kaki terdeteksi.",
+    )
 
     st.sidebar.markdown("---")
     st.sidebar.info(
@@ -891,6 +1107,8 @@ def main() -> None:
                         adaptive_threshold=enable_adaptive_conf,
                         enable_tracking=enable_temporal_tracking,
                         dual_prior_model=prior_model,
+                        enable_pedestrian_alert=enable_pedestrian_alert,
+                        enable_audio_alert=enable_audio_alert,
                     )
 
         elif input_source == "Unggah Berkas Video (MP4/AVI/MOV)":
@@ -940,6 +1158,8 @@ def main() -> None:
                             adaptive_threshold=enable_adaptive_conf,
                             enable_tracking=enable_temporal_tracking,
                             dual_prior_model=prior_model,
+                            enable_pedestrian_alert=enable_pedestrian_alert,
+                            enable_audio_alert=enable_audio_alert,
                         )
 
                 if not start_video:
@@ -972,6 +1192,8 @@ def main() -> None:
                     iou_threshold=iou_threshold,
                     adaptive_threshold=enable_adaptive_conf,
                     dual_prior_model=prior_model,
+                    enable_pedestrian_alert=enable_pedestrian_alert,
+                    enable_audio_alert=enable_audio_alert,
                 )
 
     # ------------------------------------------------------------------------

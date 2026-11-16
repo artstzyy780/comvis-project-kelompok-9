@@ -29,6 +29,26 @@ BOX_GLARE_REJECTION_RATIO: float = 0.40 # Reject low-conf person boxes dominated
 PRIOR_AGREEMENT_IOU: float = 0.40       # IoU threshold for specialist + generalist consensus
 PRIOR_RECOVERY_MIN_CONF: float = 0.35   # Min B0 confidence to recover out-of-distribution person
 PRIOR_RECOVERY_VEHICLE_CONFLICT_IOU: float = 0.50
+CRITICAL_HEIGHT_RATIO: float = 0.35     # Box height >= 35% of frame height indicates close proximity
+
+
+@dataclass(frozen=True)
+class PedestrianWarningStatus:
+    """ADAS pedestrian proximity warning status derived from frame detections.
+
+    Attributes:
+        level: Alert severity level ('safe', 'caution', or 'critical').
+        person_count: Number of detected pedestrians in the frame.
+        max_height_ratio: Largest pedestrian bounding box height relative to frame height.
+        title: Short uppercase alert header for HUD overlay.
+        message: Detailed warning message for the dashboard UI.
+    """
+
+    level: str
+    person_count: int
+    max_height_ratio: float
+    title: str
+    message: str
 
 
 @dataclass(frozen=True)
@@ -363,3 +383,65 @@ def fuse_dual_prior_detections(
         fused.append(recovered_item)
 
     return fused
+
+
+def evaluate_pedestrian_warning(
+    detections: Sequence[Dict[str, Any]],
+    frame_height: int,
+    critical_height_ratio: float = CRITICAL_HEIGHT_RATIO,
+) -> PedestrianWarningStatus:
+    """Evaluate ADAS pedestrian proximity warning level from frame detections.
+
+    Args:
+        detections: List of detection dicts containing ``class`` or ``class_id``
+            and ``box`` ([x1, y1, x2, y2]).
+        frame_height: Height of the source image/frame in pixels.
+        critical_height_ratio: Relative box height threshold (>=35% triggers critical alert).
+
+    Returns:
+        PedestrianWarningStatus describing severity ('safe', 'caution', or 'critical').
+    """
+    safe_height = max(1, int(frame_height))
+    person_boxes = [
+        det["box"]
+        for det in detections
+        if det.get("class_id") == 1 or det.get("class") == "person"
+    ]
+    person_count = len(person_boxes)
+
+    if person_count == 0:
+        return PedestrianWarningStatus(
+            level="safe",
+            person_count=0,
+            max_height_ratio=0.0,
+            title="ADAS SAFE: NO PEDESTRIAN",
+            message="Jalur aman — Tidak ada pejalan kaki terdeteksi.",
+        )
+
+    max_ratio = max(
+        max(0.0, float(box[3]) - float(box[1])) / float(safe_height)
+        for box in person_boxes
+    )
+
+    if max_ratio >= critical_height_ratio:
+        return PedestrianWarningStatus(
+            level="critical",
+            person_count=person_count,
+            max_height_ratio=round(max_ratio, 3),
+            title=f"CRITICAL ALERT: {person_count} PEDESTRIAN CLOSE!",
+            message=(
+                f"BAHAYA KRITIS — {person_count} pejalan kaki terdeteksi pada jarak dekat "
+                f"(skala {max_ratio * 100:.0f}% frame). Segera kurangi kecepatan / rem!"
+            ),
+        )
+
+    return PedestrianWarningStatus(
+        level="caution",
+        person_count=person_count,
+        max_height_ratio=round(max_ratio, 3),
+        title=f"CAUTION: {person_count} PEDESTRIAN DETECTED",
+        message=(
+            f"PERINGATAN ADAS — Terdeteksi {person_count} pejalan kaki di depan "
+            f"(skala {max_ratio * 100:.0f}% frame). Harap waspada!"
+        ),
+    )

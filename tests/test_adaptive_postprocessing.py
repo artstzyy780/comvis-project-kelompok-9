@@ -12,6 +12,7 @@ from src.adaptive_postprocessing import (
     compute_adaptive_illumination_profile,
     compute_box_iou,
     detect_glare_ratio,
+    evaluate_pedestrian_warning,
     fuse_dual_prior_detections,
     is_glare_artifact_box,
 )
@@ -158,3 +159,32 @@ def test_fuse_dual_prior_detections_consensus_and_recovery():
     assert len(persons) == 2
     assert any(p["source"] == "consensus" and p["confidence"] == pytest.approx(0.56) for p in persons)
     assert any(p["source"] == "prior_recovery" and p["confidence"] == pytest.approx(0.69) for p in persons)
+
+
+def test_evaluate_pedestrian_warning_levels():
+    """Verify safe, caution, and critical ADAS warning levels based on box height."""
+    # 1. Safe: only vehicles present
+    safe_status = evaluate_pedestrian_warning(
+        [{"class": "Vehicle", "box": [10, 10, 100, 100]}],
+        frame_height=480,
+    )
+    assert safe_status.level == "safe"
+    assert safe_status.person_count == 0
+
+    # 2. Caution: distant pedestrian (< 35% frame height)
+    caution_status = evaluate_pedestrian_warning(
+        [{"class": "person", "box": [100, 200, 140, 296]}],  # height = 96 / 480 = 20%
+        frame_height=480,
+    )
+    assert caution_status.level == "caution"
+    assert caution_status.person_count == 1
+    assert caution_status.max_height_ratio == pytest.approx(0.20, abs=0.01)
+
+    # 3. Critical: close-up pedestrian (>= 35% frame height)
+    critical_status = evaluate_pedestrian_warning(
+        [{"class_id": 1, "box": [50, 50, 200, 350]}],  # height = 300 / 480 = 62.5%
+        frame_height=480,
+    )
+    assert critical_status.level == "critical"
+    assert critical_status.person_count == 1
+    assert critical_status.max_height_ratio == pytest.approx(0.625, abs=0.01)

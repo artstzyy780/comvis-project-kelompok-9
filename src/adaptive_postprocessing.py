@@ -73,8 +73,9 @@ def calculate_frame_luminance(image: np.ndarray, is_bgr: bool = True) -> float:
     if len(image.shape) != 3 or image.shape[2] != 3:
         raise ValueError(f"Expected 3-channel image, got shape {image.shape}")
 
+    sample = image[::4, ::4] if (image.shape[0] > 160 and image.shape[1] > 160) else image
     conversion_code = cv2.COLOR_BGR2LAB if is_bgr else cv2.COLOR_RGB2LAB
-    lab_image = cv2.cvtColor(image, conversion_code)
+    lab_image = cv2.cvtColor(sample, conversion_code)
     
     # In OpenCV, L* is mapped to [0, 255]. Normalize back to [0.0, 100.0].
     raw_l_mean: float = float(np.mean(lab_image[:, :, 0]))
@@ -97,10 +98,11 @@ def detect_glare_ratio(image: np.ndarray, glare_threshold: int = GLARE_PIXEL_INT
     if image is None or image.size == 0:
         raise ValueError("Input image cannot be None or empty.")
 
-    if len(image.shape) == 3:
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    sample = image[::4, ::4] if (image.shape[0] > 160 and image.shape[1] > 160) else image
+    if len(sample.shape) == 3:
+        gray = cv2.cvtColor(sample, cv2.COLOR_BGR2GRAY)
     else:
-        gray = image
+        gray = sample
 
     total_pixels: int = gray.size
     glare_pixels: int = int(np.count_nonzero(gray >= glare_threshold))

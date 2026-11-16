@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="layout">
+  <aside class="panel controls-panel">
+    <h2>Konfigurasi Inferensi</h2>
+
+    <div class="form-group">
+      <label for="primary_model">Model utama</label>
+      <select id="primary_model" name="primary_model">
+        {% for key in model_order %}
+        {% set m = models[key] %}
+        <option value="{{ key }}" {% if key == 'Exp_D_Robust' %}selected{% endif %} {% if not m.available %}disabled{% endif %}>
+          {{ m.name }}{% if not m.available %} (bobot tidak ditemukan){% endif %}
+        </option>
+        {% endfor %}
+      </select>
+      <p class="help-text" id="primary_desc"></p>
+    </div>
+
+    <div class="form-group checkbox-group">
+      <label><input type="checkbox" id="compare" name="compare"> Bandingkan dengan model lain (side-by-side)</label>
+    </div>
+
+    <div class="form-group" id="secondary_group" style="display:none;">
+      <label for="secondary_model">Model pembanding</label>
+      <select id="secondary_model" name="secondary_model">
+        {% for key in model_order %}
+        {% set m = models[key] %}
+        <option value="{{ key }}" {% if key == 'B0_ZeroShot' %}selected{% endif %} {% if not m.available %}disabled{% endif %}>{{ m.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <hr>
+    <h3>Parameter Deteksi</h3>
+    <div class="form-group">
+      <label for="conf">Confidence threshold: <span id="conf_val">0.25</span></label>
+      <input type="range" id="conf" min="0.05" max="0.95" step="0.05" value="0.25">
+    </div>
+    <div class="form-group">
+      <label for="iou">NMS IoU threshold: <span id="iou_val">0.45</span></label>
+      <input type="range" id="iou" min="0.10" max="0.90" step="0.05" value="0.45">
+    </div>
+    <div class="form-group">
+      <label for="imgsz">Resolusi inferensi (imgsz)</label>
+      <select id="imgsz">
+        <option value="320">320</option>
+        <option value="416">416</option>
+        <option value="480">480</option>
+        <option value="640" selected>640</option>
+      </select>
+    </div>
+    <div class="form-group checkbox-group">
+      <label><input type="checkbox" id="adaptive"> Ambang adaptif berbasis luminansi (Luminance-Aware)</label>
+    </div>
+    <div class="form-group checkbox-group">
+      <label><input type="checkbox" id="tracking"> Pelacakan temporal ByteTrack (video/kamera)</label>
+    </div>
+
+    <hr>
+    <h3>Sumber Masukan</h3>
+    <div class="form-group">
+      <label for="source_type">Jenis sumber</label>
+      <select id="source_type">
+        <option value="preset">Sampel citra test set</option>
+        <option value="upload">Unggah citra (JPG/PNG)</option>
+        <option value="camera_snapshot">Snapshot kamera (browser)</option>
+        <option value="camera_live">Kamera langsung (MJPEG stream)</option>
+      </select>
+    </div>
+
+    <div id="source_preset" class="source-block">
+      <label for="preset_select">Pilih sampel</label>
+      <select id="preset_select">
+        {% for p in presets %}
+        <option value="{{ p.filename }}" {% if not p.exists %}disabled{% endif %}>{{ p.label }}{% if not p.exists %} (tidak tersedia){% endif %}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div id="source_upload" class="source-block" style="display:none;">
+      <label for="image_file">Berkas citra</label>
+      <input type="file" id="image_file" accept="image/jpeg,image/png">
+    </div>
+
+    <div id="source_camera_snapshot" class="source-block" style="display:none;">
+      <p class="help-text">Izinkan akses kamera pada browser, lalu ambil snapshot.</p>
+      <div class="button-row">
+        <button type="button" id="btn_start_cam" class="btn">Aktifkan Kamera</button>
+        <button type="button" id="btn_capture" class="btn btn-secondary" disabled>Ambil Snapshot</button>
+      </div>
+    </div>
+
+    <div id="source_camera_live" class="source-block" style="display:none;">
+      <label for="cam_index">Indeks perangkat kamera</label>
+      <input type="number" id="cam_index" min="0" max="5" value="0">
+      <p class="help-text">Stream MJPEG dari kamera server. Pastikan kamera tidak digunakan aplikasi lain.</p>
+      <div class="button-row">
+        <button type="button" id="btn_start_stream" class="btn">Mulai Stream</button>
+        <button type="button" id="btn_stop_stream" class="btn btn-secondary" disabled>Hentikan Stream</button>
+      </div>
+    </div>
+
+    <div class="form-actions" id="static_actions">
+      <button type="button" id="btn_detect" class="btn btn-primary">Jalankan Deteksi</button>
+    </div>
+
+    <div class="legend">
+      <h4>Keterangan Kelas</h4>
+      <ul>
+        <li><span class="swatch swatch-person"></span> Pejalan kaki (<code>person</code>)</li>
+        <li><span class="swatch swatch-vehicle"></span> Kendaraan (<code>Vehicle</code>)</li>
+      </ul>
+    </div>
+  </aside>
+
+  <section class="panel results-panel">
+    <h2>Hasil Deteksi</h2>
+    <div id="status" class="status" aria-live="polite"></div>
+
+    <div id="camera_preview_wrap" style="display:none;" class="preview-wrap">
+      <h3>Pratinjau Kamera</h3>
+      <video id="camera_video" autoplay playsinline></video>
+      <canvas id="camera_canvas" style="display:none;"></canvas>
+    </div>
+
+    <div id="stream_wrap" style="display:none;" class="preview-wrap">
+      <h3>Stream Kamera Langsung</h3>
+      <img id="stream_img" alt="Live stream" />
+    </div>
+
+    <div id="output_area" class="output-grid">
+      <div class="output-card" id="primary_card">
+        <h3 id="primary_title">Model Utama</h3>
+        <p class="model-badge" id="primary_badge"></p>
+        <div class="image-wrap"><img id="primary_img" alt="Hasil deteksi model utama" /></div>
+        <div class="metrics" id="primary_metrics"></div>
+      </div>
+      <div class="output-card" id="secondary_card" style="display:none;">
+        <h3 id="secondary_title">Model Pembanding</h3>
+        <p class="model-badge" id="secondary_badge"></p>
+        <div class="image-wrap"><img id="secondary_img" alt="Hasil deteksi model pembanding" /></div>
+        <div class="metrics" id="secondary_metrics"></div>
+      </div>
+    </div>
+
+    <div id="illumination_box" class="info-box" style="display:none;"></div>
+    <div id="comparison_summary" class="info-box" style="display:none;"></div>
+  </section>
+</div>
+
+<script>
+  window.APP_CONFIG = {
+    models: {{ models | tojson }},
+    detectUrl: "{{ url_for('api_detect') }}",
+    videoFeedUrl: "{{ url_for('video_feed') }}",
+    presetImageUrl: "{{ url_for('preset_image', filename='__FNAME__') }}"
+  };
+</script>
+{% endblock %}

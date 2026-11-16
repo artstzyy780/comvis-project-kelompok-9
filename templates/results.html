@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Hasil Eksperimen - {{ app_title }}{% endblock %}
+{% block content %}
+<section class="panel doc-panel">
+  <h2>Laporan Hasil Eksperimen Terpadu</h2>
+  <p class="help-text">Sumber: <code>{{ path }}</code></p>
+  {% if content %}
+  <div class="markdown-body" id="md-content" data-raw="{{ content|e }}"></div>
+  {% else %}
+  <p class="warning">Berkas hasil eksperimen tidak ditemukan. Jalankan pipeline evaluasi untuk menghasilkan <code>unified_results.md</code>.</p>
+  {% endif %}
+</section>
+{% endblock %}
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+  (function() {
+    var el = document.getElementById('md-content');
+    if (el && window.marked) {
+      var raw = el.getAttribute('data-raw') || '';
+      el.innerHTML = marked.parse(raw);
+    } else if (el) {
+      el.textContent = el.getAttribute('data-raw') || '';
+    }
+  })();
+</script>
+{% endblock %}

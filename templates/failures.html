@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Analisis Kasus Gagal - {{ app_title }}{% endblock %}
+{% block content %}
+<section class="panel doc-panel">
+  <h2>Analisis Kasus Gagal Deteksi</h2>
+  <p>Identifikasi kasus false negative dan false positive berdasarkan kategori heuristik evaluasi model.</p>
+  {% if has_grid %}
+  <figure class="figure">
+    <img src="{{ url_for('failure_grid') }}" alt="Galeri kasus gagal" class="doc-image">
+    <figcaption>Visualisasi galeri kasus gagal deteksi.</figcaption>
+  </figure>
+  {% endif %}
+  <p class="help-text">Sumber: <code>{{ path }}</code></p>
+  {% if content %}
+  <div class="markdown-body" id="md-content" data-raw="{{ content|e }}"></div>
+  {% else %}
+  <p class="warning">Berkas analisis kasus gagal tidak ditemukan.</p>
+  {% endif %}
+</section>
+{% endblock %}
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+  (function() {
+    var el = document.getElementById('md-content');
+    if (el && window.marked) {
+      var raw = el.getAttribute('data-raw') || '';
+      el.innerHTML = marked.parse(raw);
+    } else if (el) {
+      el.textContent = el.getAttribute('data-raw') || '';
+    }
+  })();
+</script>
+{% endblock %}

@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Tim &amp; Informasi - {{ app_title }}{% endblock %}
+{% block content %}
+<section class="panel doc-panel">
+  <h2>Anggota Kelompok 09</h2>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Nama</th>
+          <th>NIM</th>
+          <th>Peran</th>
+          <th>Fokus Tanggung Jawab</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Krisantus Amka Ginting</td>
+          <td>412024025</td>
+          <td>Data &amp; Preprocessing Lead</td>
+          <td>Audit kebocoran scene, pipeline CLAHE/Gamma, penyusunan dataset deduplikasi</td>
+        </tr>
+        <tr>
+          <td>Linardi Halim</td>
+          <td>212024005</td>
+          <td>Documentation &amp; Reporting Lead</td>
+          <td>Laporan teknis, sinkronisasi tracker, materi presentasi</td>
+        </tr>
+        <tr>
+          <td>Kristofer Ryan Giggs Eka Saputra</td>
+          <td>412024025</td>
+          <td>Model &amp; Training Lead</td>
+          <td>Pelatihan eksperimen, evaluasi metrik, analisis kuantitatif</td>
+        </tr>
+        <tr>
+          <td>Leonard Franscois</td>
+          <td>412024035</td>
+          <td>Demo &amp; Deployment Lead</td>
+          <td>Aplikasi demo web, pengujian inferensi, benchmark performa</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Informasi Proyek</h3>
+  <ul>
+    <li><strong>Topik:</strong> Deteksi pejalan kaki pada kondisi minim cahaya (low-light pedestrian detection)</li>
+    <li><strong>Model:</strong> Ultralytics YOLOv8n dengan variasi fine-tuning dan prapemrosesan pencahayaan</li>
+    <li><strong>Repositori:</strong> <a href="https://github.com/artstzyy780/comvis-project-kelompok-9" target="_blank" rel="noopener">artstzyy780/comvis-project-kelompok-9</a></li>
+    <li><strong>Prinsip:</strong> Pemisahan data anti-kebocoran (scene-level), reproducibility (seed tetap), dan evaluasi recall-first</li>
+  </ul>
+</section>
+{% endblock %}

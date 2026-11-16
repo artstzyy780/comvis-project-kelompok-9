@@ -1,32 +1,27 @@
-"""Interactive Demonstration Dashboard for Low-Light Pedestrian Detection (CP12).
+"""Flask web application for low-light pedestrian detection (Kelompok 09).
 
-This Streamlit application provides real-time inference and side-by-side model
-comparison for the Computer Vision Final Project (IF0PP006) - Kelompok 09:
-- Krisantus Amka Ginting (412024025) - Data & Preprocessing Lead
-- Linardi Halim (212024005) - Documentation & Reporting Lead
-- Kristofer Ryan Giggs Eka Saputra (412024025) - Model & Training Lead
-- Leonard Franscois (412024035) - Demo & Deployment Lead
+This application provides interactive inference and side-by-side model comparison
+for the Computer Vision Final Project (IF0PP006).
 
-Key Features:
-- Model Selection (Exp-C Gamma Proposed, Exp-A Standard, Exp-B CLAHE, B0 Baseline)
-- Side-by-side comparative inspection on difficult low-light scenes
-- Real-time latency (ms) and throughput (FPS) measurement on CPU
-- Interactive confidence and IoU threshold tuning
-- Embedded experimental results (CP10) and failure case analysis (CP11)
+Migrated from Streamlit to Flask for a cleaner, more professional interface.
 """
 
 from __future__ import annotations
 
+import base64
+import io
+import json
 import os
 import tempfile
+import threading
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Generator, List, Optional, Tuple
 
 import cv2
 import numpy as np
+from flask import Flask, Response, jsonify, render_template, request, send_from_directory
 from PIL import Image
-import streamlit as st
 from ultralytics import YOLO
 
 from src.adaptive_postprocessing import (
@@ -37,50 +32,50 @@ from src.adaptive_postprocessing import (
 # ----------------------------------------------------------------------------
 # Constants & Configuration
 # ----------------------------------------------------------------------------
-APP_TITLE: str = "Deteksi Pejalan Kaki Minim Cahaya (Low-Light Pedestrian Detection)"
-PROJECT_ROOT: Path = Path(__file__).resolve().parent
-TEST_IMAGES_DIR: Path = PROJECT_ROOT / "dataset_dedup" / "test" / "images"
-UNIFIED_RESULTS_PATH: Path = PROJECT_ROOT / "results" / "experiments" / "unified_results.md"
-FAILURE_CASES_PATH: Path = PROJECT_ROOT / "results" / "experiments" / "failure_cases.md"
+APP_TITLE = "Deteksi Pejalan Kaki pada Kondisi Minim Cahaya"
+PROJECT_ROOT = Path(__file__).resolve().parent
+TEST_IMAGES_DIR = PROJECT_ROOT / "dataset_dedup" / "test" / "images"
+UNIFIED_RESULTS_PATH = PROJECT_ROOT / "results" / "experiments" / "unified_results.md"
+FAILURE_CASES_PATH = PROJECT_ROOT / "results" / "experiments" / "failure_cases.md"
+FAILURE_GRID_PATH = PROJECT_ROOT / "results" / "experiments" / "failure_cases.png"
 
-# Model Registry
 MODEL_REGISTRY: Dict[str, Dict[str, Any]] = {
     "Exp_D_Robust": {
         "name": "Exp-D: Robust Fine-Tuned (Anti-Forgetting & Multi-Scale)",
         "path": PROJECT_ROOT / "hasil_final_model" / "hasil_final_model" / "Exp_D_Robust_best.pt"
         if (PROJECT_ROOT / "hasil_final_model" / "hasil_final_model" / "Exp_D_Robust_best.pt").exists()
         else PROJECT_ROOT / "Exp_D_Robust_best.pt",
-        "description": "Model transfer learning terkontrol (freeze=10, lr0=0.001, scale=0.5). Sangat handal mendeteksi pejalan kaki dekat/jauh di malam dan siang hari.",
+        "description": "Model transfer learning terkontrol (freeze=10, lr0=0.001, scale=0.5) untuk deteksi pejalan kaki jarak dekat dan jauh pada kondisi malam dan siang.",
         "is_zero_shot": False,
-        "badge": "🛡️ Robust Transfer Model",
+        "badge": "Robust Transfer Model",
     },
     "Exp_A_Standard": {
-        "name": "Exp-A: Standard Low-Light Fine-Tuned (Champion / Best Model)",
+        "name": "Exp-A: Standard Low-Light Fine-Tuned (Best on Clean Test Set)",
         "path": PROJECT_ROOT / "hasil_final_model" / "hasil_final_model" / "Exp_A_Standard_best.pt",
-        "description": "Model terbaik dengan performa tertinggi pada test set bersih (Recall 81.01%, Precision 62.75%, mAP 83.93%).",
+        "description": "Model fine-tuning standar dengan performa tertinggi pada test set bersih (Recall 81.01%, Precision 62.75%, mAP 83.93%).",
         "is_zero_shot": False,
-        "badge": "🏆 Champion / Best Model",
+        "badge": "Best Performing Model",
     },
     "Exp_C_Gamma": {
         "name": "Exp-C: Gamma Correction (Proposed Method)",
         "path": PROJECT_ROOT / "hasil_final_model" / "hasil_final_model" / "Exp_C_Gamma_best.pt",
-        "description": "Model usulan augmentasi pencahayaan non-linear (gamma=0.6). Recall 65.82% pada test set bersih.",
+        "description": "Model dengan augmentasi pencahayaan non-linear (gamma=0.6). Recall 65.82% pada test set bersih.",
         "is_zero_shot": False,
-        "badge": "🔬 Proposed Method",
+        "badge": "Proposed Method",
     },
     "Exp_B_CLAHE": {
-        "name": "Exp-B: L-channel CLAHE (Proposed Method)",
+        "name": "Exp-B: L-Channel CLAHE (Proposed Method)",
         "path": PROJECT_ROOT / "hasil_final_model" / "hasil_final_model" / "Exp_B_CLAHE_best.pt",
-        "description": "Model usulan kontras adaptif CLAHE pada kanal-L CIE L*a*b*. Mengalami amplifikasi noise di malam hari.",
+        "description": "Model dengan kontras adaptif CLAHE pada kanal-L CIE L*a*b*. Sensitif terhadap amplifikasi noise pada kondisi malam.",
         "is_zero_shot": False,
-        "badge": "🔬 Proposed Method",
+        "badge": "Proposed Method",
     },
     "B0_ZeroShot": {
         "name": "B0: Zero-Shot Baseline (COCO Pretrained)",
         "path": PROJECT_ROOT / "yolov8n.pt",
-        "description": "YOLOv8n bawaan MS COCO tanpa adaptasi domain malam hari (Recall anjlok ke 15.19%).",
+        "description": "YOLOv8n pretrained MS COCO tanpa adaptasi domain malam hari (Recall rendah pada kondisi low-light).",
         "is_zero_shot": True,
-        "badge": "📉 Baseline COCO",
+        "badge": "Baseline",
     },
 }
 
@@ -97,126 +92,109 @@ TARGET_CLASSES: Dict[int, str] = {
     1: "person",
 }
 
-# Color mapping in RGB format
-CLASS_COLORS: Dict[int, Tuple[int, int, int]] = {
-    0: (0, 180, 240),   # Vehicle: Cyan/Light Blue
-    1: (240, 40, 40),   # person: Bright Red
+# BGR colors for OpenCV drawing
+CLASS_COLORS_BGR: Dict[int, Tuple[int, int, int]] = {
+    0: (240, 180, 0),   # Vehicle: cyan/blue-ish
+    1: (40, 40, 240),   # person: red
 }
 
 SAMPLE_PRESETS: List[Tuple[str, str]] = [
-    ("Pejalan Kaki Siluet Gelap (Scene 14969583)", "14969583-55cd5dd2_augmented_1_jpg.rf.47834ba812a385f88105c1a8e60ef8f9.jpg"),
-    ("Pejalan Kaki Menyeberang Jalan (Scene 1a5d0011)", "1a5d0011-c34c50cc_augmented_0_jpg.rf.46301686bd9a0f1df9bac672db570f74.jpg"),
-    ("Pejalan Kaki Jarak Menengah (Scene 08eff217)", "08eff217-6061163f_augmented_1_jpg.rf.9435b8f3effb43e7eaadb8ab2adb4f90.jpg"),
-    ("Kepadatan Kendaraan Malam (Scene 1f08ba8a)", "1f08ba8a-1e15976e_augmented_0_jpg.rf.ce5e0d948ba77840d1db22a0084e62a1.jpg"),
-    ("Siluet Minim Cahaya Ekstrem (Scene 231bdb08)", "231bdb08-bb0a4a36_augmented_0_jpg.rf.473b90888a76e7c43ae1dfcbc63acc03.jpg"),
+    ("Pejalan kaki siluet gelap (Scene 14969583)", "14969583-55cd5dd2_augmented_1_jpg.rf.47834ba812a385f88105c1a8e60ef8f9.jpg"),
+    ("Pejalan kaki menyeberang jalan (Scene 1a5d0011)", "1a5d0011-c34c50cc_augmented_0_jpg.rf.46301686bd9a0f1df9bac672db570f74.jpg"),
+    ("Pejalan kaki jarak menengah (Scene 08eff217)", "08eff217-6061163f_augmented_1_jpg.rf.9435b8f3effb43e7eaadb8ab2adb4f90.jpg"),
+    ("Kepadatan kendaraan malam (Scene 1f08ba8a)", "1f08ba8a-1e15976e_augmented_0_jpg.rf.ce5e0d948ba77840d1db22a0084e62a1.jpg"),
+    ("Siluet minim cahaya ekstrem (Scene 231bdb08)", "231bdb08-bb0a4a36_augmented_0_jpg.rf.473b90888a76e7c43ae1dfcbc63acc03.jpg"),
 ]
 
-
 # ----------------------------------------------------------------------------
-# Model Loader Cache
+# App & Model Cache
 # ----------------------------------------------------------------------------
-@st.cache_resource(show_spinner="Memuat bobot model YOLOv8...")
-def load_yolo_model(model_key: str) -> Optional[YOLO]:
-    """Load and cache a YOLO model instance by registry key.
+app = Flask(__name__)
+app.config["MAX_CONTENT_LENGTH"] = 64 * 1024 * 1024  # 64 MB
 
-    Args:
-        model_key: Identifier key in MODEL_REGISTRY.
+_model_cache: Dict[str, YOLO] = {}
+_model_lock = threading.Lock()
 
-    Returns:
-        Loaded Ultralytics YOLO instance, or None if weights not found.
-    """
+
+def get_model(model_key: str) -> Optional[YOLO]:
+    """Load and cache a YOLO model by registry key."""
     spec = MODEL_REGISTRY.get(model_key)
     if not spec:
         return None
-    weights_path: Path = spec["path"]
-    if not weights_path.exists():
-        st.error(f"Berkas bobot model tidak ditemukan: {weights_path}")
-        return None
-    return YOLO(str(weights_path))
+    with _model_lock:
+        if model_key in _model_cache:
+            return _model_cache[model_key]
+        weights_path: Path = spec["path"]
+        if not weights_path.exists():
+            return None
+        model = YOLO(str(weights_path))
+        _model_cache[model_key] = model
+        return model
 
 
 # ----------------------------------------------------------------------------
-# Inference & Annotation Engine
+# Inference
 # ----------------------------------------------------------------------------
+
 def run_inference(
     model: YOLO,
-    image_rgb: np.ndarray,
+    image_bgr: np.ndarray,
     is_zero_shot: bool,
     conf_threshold: float,
     iou_threshold: float,
     adaptive_threshold: bool = False,
     enable_tracking: bool = False,
+    imgsz: int = 640,
 ) -> Tuple[np.ndarray, Dict[str, Any]]:
-    """Execute forward inference or tracking and render bounding boxes onto an image.
-
-    Args:
-        model: Ultralytics YOLO model.
-        image_rgb: Source image in RGB format.
-        is_zero_shot: True if model uses stock COCO taxonomy.
-        conf_threshold: Minimum confidence score (used as base when adaptive is active).
-        iou_threshold: IoU NMS threshold.
-        adaptive_threshold: Flag to enable luminance-aware dynamic thresholding.
-        enable_tracking: Flag to activate ByteTrack temporal Kalman filter.
-
-    Returns:
-        Annotated RGB image and a dictionary of inference diagnostics.
-    """
+    """Run inference (or tracking) and draw annotations on a BGR image."""
     illum_profile: Optional[AdaptiveIlluminationProfile] = None
     effective_conf: float = conf_threshold
 
     if adaptive_threshold:
         illum_profile = compute_adaptive_illumination_profile(
-            image_rgb, base_conf=conf_threshold, is_bgr=False
+            image_bgr, base_conf=conf_threshold, is_bgr=True
         )
         effective_conf = illum_profile.effective_conf_threshold
 
-    start_time: float = time.perf_counter()
+    start_time = time.perf_counter()
+    tracking_active = enable_tracking
     if enable_tracking:
         try:
             results = model.track(
-                source=image_rgb,
+                source=image_bgr,
                 persist=True,
                 tracker="bytetrack.yaml",
                 conf=effective_conf,
                 iou=iou_threshold,
-                imgsz=640,
+                imgsz=imgsz,
                 device="cpu",
                 verbose=False,
             )
-        except (ImportError, OSError) as exc:
-            # ByteTrack needs the native 'lap' solver. On machines where that
-            # extension is blocked (e.g. Windows Application Control / Smart App
-            # Control), degrade to plain detection instead of crashing the app.
-            enable_tracking = False
-            if not st.session_state.get("tracking_fallback_warned"):
-                st.session_state["tracking_fallback_warned"] = True
-                st.warning(
-                    "🎯 ByteTrack tidak aktif di mesin ini karena paket `lap` tidak "
-                    f"dapat dimuat ({exc}). Deteksi tetap berjalan tanpa Track ID."
-                )
+        except Exception:
+            tracking_active = False
             results = model.predict(
-                source=image_rgb,
+                source=image_bgr,
                 conf=effective_conf,
                 iou=iou_threshold,
-                imgsz=640,
+                imgsz=imgsz,
                 device="cpu",
                 verbose=False,
             )
     else:
         results = model.predict(
-            source=image_rgb,
+            source=image_bgr,
             conf=effective_conf,
             iou=iou_threshold,
-            imgsz=640,
+            imgsz=imgsz,
             device="cpu",
             verbose=False,
         )
-    latency_ms: float = (time.perf_counter() - start_time) * 1000.0
-    fps: float = 1000.0 / latency_ms if latency_ms > 0 else 0.0
+    latency_ms = (time.perf_counter() - start_time) * 1000.0
+    fps = 1000.0 / latency_ms if latency_ms > 0 else 0.0
 
-    annotated: np.ndarray = image_rgb.copy()
-    person_count: int = 0
-    vehicle_count: int = 0
+    annotated = image_bgr.copy()
+    person_count = 0
+    vehicle_count = 0
     detections_list: List[Dict[str, Any]] = []
 
     if results and len(results) > 0:
@@ -227,789 +205,345 @@ def run_inference(
             cls_arr = boxes.cls.cpu().numpy().astype(int)
             track_ids = (
                 boxes.id.cpu().numpy().astype(int)
-                if (enable_tracking and boxes.id is not None)
+                if (tracking_active and boxes.id is not None)
                 else None
             )
-
             for idx, (xyxy, conf, raw_cls) in enumerate(zip(xyxy_arr, conf_arr, cls_arr)):
                 target_cls: Optional[int] = None
                 if is_zero_shot:
                     target_cls = COCO_TO_TARGET_MAPPING.get(raw_cls)
-                else:
-                    if raw_cls in TARGET_CLASSES:
-                        target_cls = raw_cls
-
+                elif raw_cls in TARGET_CLASSES:
+                    target_cls = raw_cls
                 if target_cls is None:
                     continue
 
                 if target_cls == 1:
                     person_count += 1
-                elif target_cls == 0:
+                else:
                     vehicle_count += 1
 
                 x1, y1, x2, y2 = map(int, xyxy)
-                color = CLASS_COLORS[target_cls]
+                color = CLASS_COLORS_BGR[target_cls]
+                tid_prefix = ""
+                track_id_val = None
+                if track_ids is not None and idx < len(track_ids):
+                    track_id_val = int(track_ids[idx])
+                    tid_prefix = f"ID:{track_id_val} "
+                label_text = f"{tid_prefix}{TARGET_CLASSES[target_cls]} {conf:.2f}"
 
-                tid_str = f"ID:{track_ids[idx]} " if (track_ids is not None and idx < len(track_ids)) else ""
-                label_text = f"{tid_str}{TARGET_CLASSES[target_cls]} {conf:.2f}"
-
-                # Draw bounding box
                 cv2.rectangle(annotated, (x1, y1), (x2, y2), color, 2)
-
-                # Draw label background
                 font_scale = 0.5
                 thickness = 1
-                (text_w, text_h), baseline = cv2.getTextSize(
+                (text_w, text_h), _ = cv2.getTextSize(
                     label_text, cv2.FONT_HERSHEY_SIMPLEX, font_scale, thickness
                 )
-                label_y1 = max(0, y1 - text_h - 4)
+                label_y1 = max(0, y1 - text_h - 6)
                 cv2.rectangle(
                     annotated,
                     (x1, label_y1),
-                    (x1 + text_w + 6, label_y1 + text_h + 4),
+                    (x1 + text_w + 6, label_y1 + text_h + 6),
                     color,
                     -1,
                 )
                 cv2.putText(
                     annotated,
                     label_text,
-                    (x1 + 3, label_y1 + text_h + 1),
+                    (x1 + 3, label_y1 + text_h + 2),
                     cv2.FONT_HERSHEY_SIMPLEX,
                     font_scale,
                     (255, 255, 255),
                     thickness,
                     cv2.LINE_AA,
                 )
-
                 detections_list.append(
                     {
                         "class": TARGET_CLASSES[target_cls],
-                        "confidence": float(conf),
+                        "confidence": round(float(conf), 4),
                         "box": [x1, y1, x2, y2],
-                        "track_id": int(track_ids[idx]) if (track_ids is not None and idx < len(track_ids)) else None,
+                        "track_id": track_id_val,
                     }
                 )
 
     diagnostics: Dict[str, Any] = {
-        "latency_ms": latency_ms,
-        "fps": fps,
+        "latency_ms": round(latency_ms, 2),
+        "fps": round(fps, 2),
         "person_count": person_count,
         "vehicle_count": vehicle_count,
         "total_detections": person_count + vehicle_count,
         "detections": detections_list,
-        "illumination_profile": illum_profile,
-        "effective_conf": effective_conf,
-        "tracking_active": enable_tracking,
+        "effective_conf": round(effective_conf, 2),
+        "tracking_active": tracking_active,
+        "illumination": None,
     }
+    if illum_profile is not None:
+        diagnostics["illumination"] = {
+            "luminance": illum_profile.luminance,
+            "glare_ratio": illum_profile.glare_ratio,
+            "effective_conf_threshold": illum_profile.effective_conf_threshold,
+            "mode_label": illum_profile.mode_label,
+            "is_glare_detected": illum_profile.is_glare_detected,
+            "is_low_light_boost_active": illum_profile.is_low_light_boost_active,
+        }
     return annotated, diagnostics
 
 
+def encode_image_b64(image_bgr: np.ndarray, quality: int = 90) -> str:
+    ok, buf = cv2.imencode(".jpg", image_bgr, [int(cv2.IMWRITE_JPEG_QUALITY), quality])
+    if not ok:
+        return ""
+    return base64.b64encode(buf.tobytes()).decode("ascii")
+
+
+def read_image_to_bgr(file_storage) -> Optional[np.ndarray]:
+    try:
+        data = file_storage.read()
+        arr = np.frombuffer(data, dtype=np.uint8)
+        img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+        return img
+    except Exception:
+        return None
+
+
+def read_markdown(path: Path) -> str:
+    if not path.exists():
+        return ""
+    try:
+        return path.read_text(encoding="utf-8")
+    except Exception:
+        return path.read_text(encoding="utf-8", errors="replace")
+
+
 # ----------------------------------------------------------------------------
-# View Renderers (Static Images & Real-time Streams)
+# Routes
 # ----------------------------------------------------------------------------
-def render_static_detection(
-    image_rgb: np.ndarray,
-    primary_model: YOLO,
-    primary_model_key: str,
-    enable_comparison: bool,
-    secondary_model: Optional[YOLO],
-    secondary_model_key: Optional[str],
-    conf_threshold: float,
-    iou_threshold: float,
-    adaptive_threshold: bool = False,
-) -> None:
-    """Render detection results on a static image with optional side-by-side view.
 
-    Args:
-        image_rgb: RGB image array.
-        primary_model: Loaded primary YOLO model.
-        primary_model_key: Registry key of primary model.
-        enable_comparison: Flag indicating side-by-side comparison mode.
-        secondary_model: Loaded secondary model if comparison enabled.
-        secondary_model_key: Registry key of secondary model.
-        conf_threshold: Confidence threshold.
-        iou_threshold: IoU NMS threshold.
-    """
-    spec_p = MODEL_REGISTRY[primary_model_key]
+@app.route("/")
+def index():
+    available_presets = []
+    for label, filename in SAMPLE_PRESETS:
+        available_presets.append({
+            "label": label,
+            "filename": filename,
+            "exists": (TEST_IMAGES_DIR / filename).exists(),
+        })
+    return render_template(
+        "index.html",
+        app_title=APP_TITLE,
+        models={k: {"name": v["name"], "description": v["description"], "badge": v["badge"], "available": v["path"].exists()}
+                for k, v in MODEL_REGISTRY.items()},
+        model_order=list(MODEL_REGISTRY.keys()),
+        presets=available_presets,
+    )
 
-    if adaptive_threshold:
-        prof_check = compute_adaptive_illumination_profile(image_rgb, base_conf=conf_threshold, is_bgr=False)
-        st.info(
-            f"💡 **Profil Pencahayaan Adaptif:** {prof_check.mode_label} | "
-            f"Rerata Luminansi: **{prof_check.luminance:.1f} L* / 100** | "
-            f"Rasio Glare: **{prof_check.glare_ratio * 100:.2f}%** | "
-            f"Ambang Terkoreksi: **{prof_check.effective_conf_threshold:.2f}** (Base: {conf_threshold:.2f})"
-        )
 
-    if enable_comparison and secondary_model_key and secondary_model:
-        spec_s = MODEL_REGISTRY[secondary_model_key]
-        col_left, col_right = st.columns(2)
+@app.route("/results")
+def results_page():
+    content = read_markdown(UNIFIED_RESULTS_PATH)
+    return render_template("results.html", app_title=APP_TITLE, content=content,
+                           path=str(UNIFIED_RESULTS_PATH))
 
-        # Primary Model Column
-        with col_left:
-            st.subheader(f"🔹 {spec_p['name']}")
-            st.caption(f"{spec_p['description']}")
-            annotated_p, diag_p = run_inference(
-                primary_model,
-                image_rgb,
-                spec_p["is_zero_shot"],
-                conf_threshold,
-                iou_threshold,
-                adaptive_threshold=adaptive_threshold,
-                enable_tracking=False,
-            )
-            st.image(annotated_p, use_container_width=True)
 
-            c1, c2, c3, c4 = st.columns(4)
-            c1.metric("🚶 Pedestrian", diag_p["person_count"])
-            c2.metric("🚗 Vehicle", diag_p["vehicle_count"])
-            c3.metric("⏱️ Latensi", f"{diag_p['latency_ms']:.1f} ms")
-            c4.metric("⚡ FPS", f"{diag_p['fps']:.1f}")
+@app.route("/failures")
+def failures_page():
+    content = read_markdown(FAILURE_CASES_PATH)
+    has_grid = FAILURE_GRID_PATH.exists()
+    return render_template("failures.html", app_title=APP_TITLE, content=content,
+                           has_grid=has_grid, path=str(FAILURE_CASES_PATH))
 
-        # Secondary Model Column
-        with col_right:
-            st.subheader(f"🔸 {spec_s['name']}")
-            st.caption(f"{spec_s['description']}")
-            annotated_s, diag_s = run_inference(
-                secondary_model,
-                image_rgb,
-                spec_s["is_zero_shot"],
-                conf_threshold,
-                iou_threshold,
-                adaptive_threshold=adaptive_threshold,
-                enable_tracking=False,
-            )
-            st.image(annotated_s, use_container_width=True)
 
-            c1, c2, c3, c4 = st.columns(4)
-            c1.metric("🚶 Pedestrian", diag_s["person_count"])
-            c2.metric("🚗 Vehicle", diag_s["vehicle_count"])
-            c3.metric("⏱️ Latensi", f"{diag_s['latency_ms']:.1f} ms")
-            c4.metric("⚡ FPS", f"{diag_s['fps']:.1f}")
+@app.route("/about")
+def about_page():
+    return render_template("about.html", app_title=APP_TITLE)
 
-        # Summary Comparison Card
-        st.markdown("---")
-        p_gain = diag_p["person_count"] - diag_s["person_count"]
-        if p_gain > 0:
-            st.success(
-                f"🎯 **Analisis:** Model utama **{spec_p['name']}** mendeteksi **+{p_gain} pejalan kaki lebih banyak** dibanding {spec_s['name']} pada kondisi cahaya ini!"
-            )
-        elif p_gain == 0:
-            st.info(
-                f"ℹ️ Kedua model mendeteksi jumlah pejalan kaki yang sama ({diag_p['person_count']} pejalan kaki)."
-            )
+
+@app.route("/static/failure_grid")
+def failure_grid():
+    if not FAILURE_GRID_PATH.exists():
+        return "Not found", 404
+    return send_from_directory(FAILURE_GRID_PATH.parent, FAILURE_GRID_PATH.name)
+
+
+@app.route("/api/preset_image/<path:filename>")
+def preset_image(filename: str):
+    # serve preset as base64/json for client preview convenience
+    safe_name = Path(filename).name
+    img_path = TEST_IMAGES_DIR / safe_name
+    if not img_path.exists():
+        return jsonify({"error": "File tidak ditemukan."}), 404
+    img = cv2.imread(str(img_path))
+    if img is None:
+        return jsonify({"error": "Gagal membaca citra."}), 400
+    return jsonify({"image": encode_image_b64(img)})
+
+
+@app.route("/api/detect", methods=["POST"])
+def api_detect():
+    try:
+        primary_key = request.form.get("primary_model", "Exp_D_Robust")
+        compare = request.form.get("compare", "false").lower() == "true"
+        secondary_key = request.form.get("secondary_model")
+        conf = float(request.form.get("conf", 0.25))
+        iou = float(request.form.get("iou", 0.45))
+        adaptive = request.form.get("adaptive", "false").lower() == "true"
+        imgsz = int(request.form.get("imgsz", 640))
+        source_type = request.form.get("source_type", "upload")
+
+        image_bgr = None
+        if source_type == "preset":
+            fname = Path(request.form.get("preset_filename", "")).name
+            path = TEST_IMAGES_DIR / fname
+            if path.exists():
+                image_bgr = cv2.imread(str(path))
         else:
-            st.warning(
-                f"⚠️ Model pembanding mendeteksi {-p_gain} pejalan kaki lebih banyak pada ambang batas saat ini."
-            )
+            file = request.files.get("image")
+            if file:
+                image_bgr = read_image_to_bgr(file)
+
+        if image_bgr is None:
+            return jsonify({"error": "Citra masukan tidak valid atau tidak ditemukan."}), 400
+
+        primary_model = get_model(primary_key)
+        if primary_model is None:
+            return jsonify({"error": f"Model utama '{primary_key}' tidak tersedia."}), 400
+        primary_spec = MODEL_REGISTRY[primary_key]
+
+        annotated_p, diag_p = run_inference(
+            primary_model, image_bgr, primary_spec["is_zero_shot"],
+            conf, iou, adaptive_threshold=adaptive, enable_tracking=False, imgsz=imgsz,
+        )
+        response: Dict[str, Any] = {
+            "primary": {
+                "model_key": primary_key,
+                "model_name": primary_spec["name"],
+                "image": encode_image_b64(annotated_p),
+                "diagnostics": diag_p,
+            }
+        }
+
+        if compare and secondary_key and secondary_key != primary_key:
+            secondary_model = get_model(secondary_key)
+            if secondary_model is not None:
+                secondary_spec = MODEL_REGISTRY[secondary_key]
+                annotated_s, diag_s = run_inference(
+                    secondary_model, image_bgr, secondary_spec["is_zero_shot"],
+                    conf, iou, adaptive_threshold=adaptive, enable_tracking=False, imgsz=imgsz,
+                )
+                response["secondary"] = {
+                    "model_key": secondary_key,
+                    "model_name": secondary_spec["name"],
+                    "image": encode_image_b64(annotated_s),
+                    "diagnostics": diag_s,
+                }
+
+        return jsonify(response)
+    except Exception as exc:
+        return jsonify({"error": f"Terjadi kesalahan saat inferensi: {exc}"}), 500
+
+
+def mjpeg_generator(
+    source: Any,
+    primary_key: str,
+    secondary_key: Optional[str],
+    conf: float,
+    iou: float,
+    adaptive: bool,
+    tracking: bool,
+    imgsz: int,
+    compare: bool,
+):
+    """Yield MJPEG frames for webcam or video file streaming."""
+    # Try to open with best backend on Windows
+    cap = None
+    if isinstance(source, int):
+        for backend in ([cv2.CAP_DSHOW, cv2.CAP_MSMF, cv2.CAP_ANY] if os.name == "nt" else [cv2.CAP_ANY]):
+            cap = cv2.VideoCapture(source, backend)
+            if cap.isOpened():
+                cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+                cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+                cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+                break
+            cap.release()
+            cap = None
+        if cap is None:
+            return
     else:
-        # Single Model Display
-        st.subheader(f"🎯 {spec_p['name']}")
-        st.caption(spec_p["description"])
-        annotated_img, diag = run_inference(
-            primary_model,
-            image_rgb,
-            spec_p["is_zero_shot"],
-            conf_threshold,
-            iou_threshold,
-            adaptive_threshold=adaptive_threshold,
-            enable_tracking=False,
-        )
-        st.image(annotated_img, use_container_width=True)
+        cap = cv2.VideoCapture(source)
 
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric("🚶 Pejalan Kaki Terdeteksi", diag["person_count"])
-        c2.metric("🚗 Kendaraan Terdeteksi", diag["vehicle_count"])
-        c3.metric("⏱️ Latensi CPU", f"{diag['latency_ms']:.1f} ms")
-        c4.metric("⚡ FPS Inferensi", f"{diag['fps']:.1f}")
-
-
-def process_video_feed(
-    video_source: Any,
-    primary_model: YOLO,
-    primary_model_key: str,
-    enable_comparison: bool,
-    secondary_model: Optional[YOLO],
-    secondary_model_key: Optional[str],
-    conf_threshold: float,
-    iou_threshold: float,
-    frame_skip: int = 1,
-    is_live_camera: bool = False,
-    adaptive_threshold: bool = False,
-    enable_tracking: bool = True,
-) -> None:
-    """Stream and infer video frames in real-time with UI metrics updates.
-
-    Args:
-        video_source: Video file path or camera device index integer.
-        primary_model: Loaded primary YOLO model.
-        primary_model_key: Registry key of primary model.
-        enable_comparison: Flag indicating side-by-side comparison mode.
-        secondary_model: Loaded secondary model if comparison enabled.
-        secondary_model_key: Registry key of secondary model.
-        conf_threshold: Confidence threshold.
-        iou_threshold: IoU NMS threshold.
-        frame_skip: Number of frames to step (1 = process every frame).
-        is_live_camera: True if capturing from live hardware webcam.
-    """
-    cap = cv2.VideoCapture(video_source)
-    if not cap.isOpened():
-        st.error(
-            "❌ Tidak dapat membuka sumber video/kamera. Pastikan perangkat terhubung "
-            "dan tidak sedang digunakan oleh aplikasi lain (seperti Zoom/Teams)."
-        )
+    if not cap or not cap.isOpened():
         return
 
-    stop_stream = st.button("⏹️ Hentikan Pemutaran / Siaran", key="stop_stream_btn")
+    primary_model = get_model(primary_key)
+    if primary_model is None:
+        cap.release()
+        return
+    primary_spec = MODEL_REGISTRY[primary_key]
+    secondary_model = get_model(secondary_key) if (compare and secondary_key) else None
+    secondary_spec = MODEL_REGISTRY.get(secondary_key) if secondary_key else None
 
-    spec_p = MODEL_REGISTRY[primary_model_key]
-    spec_s = MODEL_REGISTRY.get(secondary_model_key) if (enable_comparison and secondary_model_key) else None
-
-    if enable_comparison and spec_s and secondary_model:
-        col_left, col_right = st.columns(2)
-        with col_left:
-            st.subheader(f"🔹 {spec_p['name']}")
-            frame_ph_p = st.empty()
-            metric_ph_p = st.empty()
-        with col_right:
-            st.subheader(f"🔸 {spec_s['name']}")
-            frame_ph_s = st.empty()
-            metric_ph_s = st.empty()
-    else:
-        st.subheader(f"🎯 {spec_p['name']}")
-        frame_ph_p = st.empty()
-        metric_ph_p = st.empty()
-
-    frame_counter: int = 0
     try:
-        while cap.isOpened() and not stop_stream:
-            ret, frame_bgr = cap.read()
+        while cap.isOpened():
+            ret, frame = cap.read()
             if not ret:
-                if not is_live_camera:
-                    st.info("ℹ️ Pemutaran video telah selesai.")
-                break
-
-            frame_counter += 1
-            if frame_counter % frame_skip != 0:
+                if not isinstance(source, int):
+                    break  # end of video file
+                time.sleep(0.01)
                 continue
 
-            frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
-
-            annotated_p, diag_p = run_inference(
-                primary_model,
-                frame_rgb,
-                spec_p["is_zero_shot"],
-                conf_threshold,
-                iou_threshold,
-                adaptive_threshold=adaptive_threshold,
-                enable_tracking=enable_tracking,
+            annotated_p, _ = run_inference(
+                primary_model, frame, primary_spec["is_zero_shot"],
+                conf, iou, adaptive_threshold=adaptive, enable_tracking=tracking, imgsz=imgsz,
             )
-            frame_ph_p.image(annotated_p, use_container_width=True)
-            metric_ph_p.markdown(build_stream_metrics_text(diag_p))
-
-            if enable_comparison and spec_s and secondary_model:
-                annotated_s, diag_s = run_inference(
-                    secondary_model,
-                    frame_rgb,
-                    spec_s["is_zero_shot"],
-                    conf_threshold,
-                    iou_threshold,
-                    adaptive_threshold=adaptive_threshold,
-                    enable_tracking=enable_tracking,
+            if secondary_model and secondary_spec:
+                annotated_s, _ = run_inference(
+                    secondary_model, frame, secondary_spec["is_zero_shot"],
+                    conf, iou, adaptive_threshold=adaptive, enable_tracking=tracking, imgsz=imgsz,
                 )
-                frame_ph_s.image(annotated_s, use_container_width=True)
-                metric_ph_s.markdown(build_stream_metrics_text(diag_s))
+                # resize to same height and concatenate side by side
+                h = max(annotated_p.shape[0], annotated_s.shape[0])
+                def resize_h(img, h):
+                    if img.shape[0] == h:
+                        return img
+                    w = int(img.shape[1] * h / img.shape[0])
+                    return cv2.resize(img, (w, h))
+                annotated_p = resize_h(annotated_p, h)
+                annotated_s = resize_h(annotated_s, h)
+                output = np.hstack([annotated_p, annotated_s])
+            else:
+                output = annotated_p
 
-            time.sleep(0.01)
+            ok, buf = cv2.imencode(".jpg", output, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
+            if not ok:
+                continue
+            frame_bytes = buf.tobytes()
+            yield (b"--frame\r\n"
+                   b"Content-Type: image/jpeg\r\n\r\n" + frame_bytes + b"\r\n")
     finally:
         cap.release()
 
 
-# ----------------------------------------------------------------------------
-# Live Webcam (non-blocking)
-# ----------------------------------------------------------------------------
-def open_camera_device(index: int) -> cv2.VideoCapture:
-    """Open a webcam using the most reliable backend for this platform.
+@app.route("/api/video_feed")
+def video_feed():
+    source_type = request.args.get("source", "camera")
+    cam_index = int(request.args.get("cam_index", 0))
+    primary_key = request.args.get("primary_model", "Exp_D_Robust")
+    secondary_key = request.args.get("secondary_model")
+    compare = request.args.get("compare", "false").lower() == "true"
+    conf = float(request.args.get("conf", 0.25))
+    iou = float(request.args.get("iou", 0.45))
+    adaptive = request.args.get("adaptive", "false").lower() == "true"
+    tracking = request.args.get("tracking", "false").lower() == "true"
+    imgsz = int(request.args.get("imgsz", 416))
 
-    On Windows the OpenCV default (MSMF) often fails or takes seconds to open
-    when the device was recently used by another app, so DirectShow is tried
-    first and the remaining backends act as fallbacks.
-    """
-    backends = (
-        [cv2.CAP_DSHOW, cv2.CAP_MSMF, cv2.CAP_ANY] if os.name == "nt" else [cv2.CAP_ANY]
-    )
-    for backend in backends:
-        cap = cv2.VideoCapture(index, backend)
-        if not cap.isOpened():
-            cap.release()
-            continue
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-        # The first read is frequently empty while the sensor wakes up.
-        cap.read()
-        return cap
-    return cv2.VideoCapture()
-
-
-def release_camera_device() -> None:
-    """Release the webcam held in session state so the device is not locked."""
-    cap = st.session_state.pop("live_cam_cap", None)
-    st.session_state.pop("live_cam_index", None)
-    if cap is not None:
-        try:
-            cap.release()
-        except Exception:
-            pass
-
-
-def build_stream_metrics_text(diag: Dict[str, Any]) -> str:
-    """Format the per-frame metrics line shown under a live preview."""
-    text = (
-        f"**🚶 Pedestrian:** `{diag['person_count']}` | "
-        f"**🚗 Kendaraan:** `{diag['vehicle_count']}` | "
-        f"**⏱️ Latensi:** `{diag['latency_ms']:.1f} ms` | "
-        f"**⚡ FPS:** `{diag['fps']:.1f}`"
-    )
-    if diag.get("tracking_active"):
-        text += " | 🎯 `ByteTrack`"
-    return text
-
-
-@st.fragment(run_every=0.05)
-def render_live_camera(
-    cam_index: int,
-    primary_model: YOLO,
-    primary_model_key: str,
-    enable_comparison: bool,
-    secondary_model: Optional[YOLO],
-    secondary_model_key: Optional[str],
-    conf_threshold: float,
-    iou_threshold: float,
-    adaptive_threshold: bool = False,
-    enable_tracking: bool = True,
-) -> None:
-    """Render one webcam frame per fragment tick without blocking the script.
-
-    The previous implementation looped over ``cap.read()`` inside a normal
-    Streamlit run. A running script cannot process widget events, so the stop
-    button and the on/off toggle never responded and the camera stayed locked
-    forever. Pulling a single frame per fragment tick keeps the UI responsive.
-    """
-    cap = st.session_state.get("live_cam_cap")
-    if (
-        cap is None
-        or not cap.isOpened()
-        or st.session_state.get("live_cam_index") != cam_index
-    ):
-        release_camera_device()
-        cap = open_camera_device(cam_index)
-        st.session_state["live_cam_cap"] = cap
-        st.session_state["live_cam_index"] = cam_index
-
-    if not cap.isOpened():
-        st.error(
-            "❌ Tidak dapat membuka kamera. Tutup aplikasi lain yang memakai kamera "
-            "(Zoom/Teams/Camera), lalu matikan dan nyalakan kembali toggle di atas."
-        )
-        return
-
-    ret, frame_bgr = cap.read()
-    if not ret:
-        st.caption("⏳ Menunggu frame dari kamera...")
-        return
-
-    frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
-    spec_p = MODEL_REGISTRY[primary_model_key]
-
-    if enable_comparison and secondary_model and secondary_model_key:
-        spec_s = MODEL_REGISTRY[secondary_model_key]
-        col_left, col_right = st.columns(2)
-        with col_left:
-            st.markdown(f"**🔹 {spec_p['name']}**")
-            annotated_p, diag_p = run_inference(
-                primary_model,
-                frame_rgb,
-                spec_p["is_zero_shot"],
-                conf_threshold,
-                iou_threshold,
-                adaptive_threshold=adaptive_threshold,
-                enable_tracking=enable_tracking,
-            )
-            st.image(annotated_p, use_container_width=True)
-            st.markdown(build_stream_metrics_text(diag_p))
-        with col_right:
-            st.markdown(f"**🔸 {spec_s['name']}**")
-            annotated_s, diag_s = run_inference(
-                secondary_model,
-                frame_rgb,
-                spec_s["is_zero_shot"],
-                conf_threshold,
-                iou_threshold,
-                adaptive_threshold=adaptive_threshold,
-                enable_tracking=enable_tracking,
-            )
-            st.image(annotated_s, use_container_width=True)
-            st.markdown(build_stream_metrics_text(diag_s))
+    if source_type == "camera":
+        source = cam_index
     else:
-        st.markdown(f"**🎯 {spec_p['name']}**")
-        annotated_p, diag_p = run_inference(
-            primary_model,
-            frame_rgb,
-            spec_p["is_zero_shot"],
-            conf_threshold,
-            iou_threshold,
-            adaptive_threshold=adaptive_threshold,
-            enable_tracking=enable_tracking,
-        )
-        st.image(annotated_p, use_container_width=True)
-        st.markdown(build_stream_metrics_text(diag_p))
+        return "Unsupported source for streaming endpoint.", 400
 
-
-# ----------------------------------------------------------------------------
-# Application UI
-# ----------------------------------------------------------------------------
-def main() -> None:
-    """Streamlit application layout and event routing."""
-    st.set_page_config(
-        page_title="Deteksi Pedestrian Low-Light | K09",
-        page_icon="🚶‍♂️",
-        layout="wide",
-        initial_sidebar_state="expanded",
+    return Response(
+        mjpeg_generator(source, primary_key, secondary_key, conf, iou, adaptive, tracking, imgsz, compare),
+        mimetype="multipart/x-mixed-replace; boundary=frame",
     )
-
-    st.markdown(
-        """
-        <style>
-        .main-header { font-size: 2.1rem; font-weight: 700; color: #1E293B; margin-bottom: 0.2rem; }
-        .sub-header { font-size: 1.05rem; color: #64748B; margin-bottom: 1.5rem; }
-        .metric-card { background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 12px; }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    st.markdown(f"<div class='main-header'>🚶‍♂️ {APP_TITLE}</div>", unsafe_allow_html=True)
-    st.markdown(
-        "<div class='sub-header'>Visi Komputer (IF0PP006) — Kelompok 09 | Evaluasi Inferensi Model Terkendali & Sidik Jari Kinerja</div>",
-        unsafe_allow_html=True,
-    )
-
-    # ------------------------------------------------------------------------
-    # Sidebar: Model & Parameter Settings
-    # ------------------------------------------------------------------------
-    st.sidebar.header("⚙️ Konfigurasi Model & Inferensi")
-
-    model_options = list(MODEL_REGISTRY.keys())
-    primary_model_key = st.sidebar.selectbox(
-        "Pilih Model Utama:",
-        options=model_options,
-        index=0,  # Exp_C_Gamma as default
-        format_func=lambda k: MODEL_REGISTRY[k]["name"],
-    )
-
-    enable_comparison = st.sidebar.checkbox(
-        "Bandingkan 2 Model (Side-by-Side)",
-        value=True,
-        help="Menampilkan komparasi deteksi berdampingan pada citra yang sama.",
-    )
-
-    secondary_model_key: Optional[str] = None
-    if enable_comparison:
-        remaining_options = [k for k in model_options if k != primary_model_key]
-        default_secondary_idx = remaining_options.index("B0_ZeroShot") if "B0_ZeroShot" in remaining_options else 0
-        secondary_model_key = st.sidebar.selectbox(
-            "Pilih Model Pembanding:",
-            options=remaining_options,
-            index=default_secondary_idx,
-            format_func=lambda k: MODEL_REGISTRY[k]["name"],
-        )
-
-    st.sidebar.markdown("---")
-    st.sidebar.subheader("🎛️ Ambang Batas Deteksi")
-    conf_threshold = st.sidebar.slider(
-        "Confidence Threshold (Min Keyakinan)",
-        min_value=0.05,
-        max_value=0.95,
-        value=0.25,
-        step=0.05,
-        help="Ambang batas probabilitas deteksi (Operating Point recall-first = 0.25).",
-    )
-    iou_threshold = st.sidebar.slider(
-        "NMS IoU Threshold (Supresi Overlap)",
-        min_value=0.10,
-        max_value=0.90,
-        value=0.45,
-        step=0.05,
-        help="Ambang batas tumpang-tindih bounding box untuk Non-Maximum Suppression.",
-    )
-
-    st.sidebar.markdown("---")
-    st.sidebar.subheader("🔬 Peningkatan Algoritmik (CP12+)")
-    enable_adaptive_conf = st.sidebar.checkbox(
-        "💡 Ambang Batas Adaptif (Luminance-Aware)",
-        value=False,
-        help=(
-            "Menghitung luminansi L* dan rasio silau (glare) secara otomatis. "
-            "Pada area gelap, ambang diturunkan (0.18-0.20) untuk mengangkat Recall; "
-            "pada area silau lampu, ambang dinaikkan (0.35) untuk menekan False Positive."
-        ),
-    )
-    enable_temporal_tracking = st.sidebar.checkbox(
-        "🎯 Pelacakan Temporal (ByteTrack)",
-        value=True,
-        help=(
-            "Mengaktifkan Kalman Filter (ByteTrack) pada video/kamera "
-            "untuk menjaga kontinuitas deteksi dan menampilkan Track ID."
-        ),
-    )
-
-    st.sidebar.markdown("---")
-    st.sidebar.info(
-        "💡 **Kunci Kategori Warna Bounding Box:**\n"
-        "- 🔴 **Merah**: Pejalan Kaki (`person`)\n"
-        "- 🔵 **Biru/Cyan**: Kendaraan (`Vehicle`)"
-    )
-
-    # ------------------------------------------------------------------------
-    # Main Tabs
-    # ------------------------------------------------------------------------
-    tab_demo, tab_results, tab_failures, tab_about = st.tabs(
-        ["🖼️ Live Demo Inferensi", "📊 Tabel Hasil Terpadu (CP10)", "🔍 Analisis Kasus Gagal (CP11)", "👥 Tim & Kontrak (CP00)"]
-    )
-
-    # ------------------------------------------------------------------------
-    # TAB 1: Live Demo
-    # ------------------------------------------------------------------------
-    with tab_demo:
-        input_source = st.radio(
-            "Sumber Masukan Uji (Input Source):",
-            options=[
-                "Pilih Sampel Test Set (Citra Malam)",
-                "Unggah Citra Sendiri (JPG/PNG)",
-                "Snapshot Kamera Laptop (Foto Langsung)",
-                "Live Kamera Laptop (Webcam Real-Time)",
-                "Unggah Berkas Video (MP4/AVI/MOV)",
-            ],
-            horizontal=True,
-        )
-
-        image_rgb: Optional[np.ndarray] = None
-        start_webcam: bool = False
-
-        if input_source == "Pilih Sampel Test Set (Citra Malam)":
-            selected_preset_label = st.selectbox(
-                "Pilih Kasus Uji Malam Hari:",
-                options=[label for label, _ in SAMPLE_PRESETS],
-            )
-            selected_filename = dict(SAMPLE_PRESETS)[selected_preset_label]
-            preset_path = TEST_IMAGES_DIR / selected_filename
-
-            if preset_path.exists():
-                image_pil = Image.open(preset_path).convert("RGB")
-                image_rgb = np.array(image_pil)
-            else:
-                st.warning(f"File sampel belum tersedia di `{preset_path}`. Silakan unggah citra.")
-
-        elif input_source == "Unggah Citra Sendiri (JPG/PNG)":
-            uploaded_file = st.file_uploader(
-                "Unggah foto jalanan malam hari:", type=["jpg", "jpeg", "png"]
-            )
-            if uploaded_file is not None:
-                image_pil = Image.open(uploaded_file).convert("RGB")
-                image_rgb = np.array(image_pil)
-
-        elif input_source == "Snapshot Kamera Laptop (Foto Langsung)":
-            st.info("📸 Arahkan kamera laptop ke arah subjek dan klik tombol di bawah untuk mengambil foto.")
-            camera_pic = st.camera_input("Ambil foto langsung dari kamera laptop:")
-            if camera_pic is not None:
-                image_pil = Image.open(camera_pic).convert("RGB")
-                image_rgb = np.array(image_pil)
-
-        elif input_source == "Live Kamera Laptop (Webcam Real-Time)":
-            st.info("📹 Deteksi langsung frame-by-frame dari kamera webcam laptop secara real-time.")
-            cam_col1, cam_col2 = st.columns([1, 2])
-            with cam_col1:
-                cam_idx = st.number_input(
-                    "Device Index Kamera:",
-                    min_value=0,
-                    max_value=5,
-                    value=0,
-                    step=1,
-                    help="Index 0 adalah kamera utama/bawaan laptop.",
-                )
-                start_webcam = st.toggle(
-                    "🔴 Aktifkan Kamera Laptop",
-                    value=False,
-                    key="live_cam_toggle",
-                )
-            with cam_col2:
-                st.caption(
-                    "Tips: Pastikan tidak ada aplikasi lain yang sedang mengunci kamera (Zoom, Teams, dsb). "
-                    "Gunakan slider di bilah samping untuk mengubah Confidence & NMS IoU secara dinamis."
-                )
-
-            if start_webcam:
-                primary_model = load_yolo_model(primary_model_key)
-                secondary_model = (
-                    load_yolo_model(secondary_model_key)
-                    if (enable_comparison and secondary_model_key)
-                    else None
-                )
-                if primary_model:
-                    render_live_camera(
-                        cam_index=int(cam_idx),
-                        primary_model=primary_model,
-                        primary_model_key=primary_model_key,
-                        enable_comparison=enable_comparison,
-                        secondary_model=secondary_model,
-                        secondary_model_key=secondary_model_key,
-                        conf_threshold=conf_threshold,
-                        iou_threshold=iou_threshold,
-                        adaptive_threshold=enable_adaptive_conf,
-                        enable_tracking=enable_temporal_tracking,
-                    )
-
-        elif input_source == "Unggah Berkas Video (MP4/AVI/MOV)":
-            st.info("🎥 Unggah rekaman video lalu aktifkan pemutaran untuk inferensi deteksi per-frame.")
-            uploaded_video = st.file_uploader(
-                "Unggah berkas rekaman video (MP4, AVI, MOV, MKV):",
-                type=["mp4", "avi", "mov", "mkv"],
-            )
-            if uploaded_video is not None:
-                suffix = Path(uploaded_video.name).suffix or ".mp4"
-                with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tfile:
-                    tfile.write(uploaded_video.read())
-                    temp_video_path = tfile.name
-
-                v_col1, v_col2 = st.columns([1, 2])
-                with v_col1:
-                    start_video = st.toggle("▶️ Mulai Putar & Deteksi Video", value=False)
-                with v_col2:
-                    frame_skip_val = st.slider(
-                        "Lewati Frame (Frame Skip untuk percepat CPU)",
-                        min_value=1,
-                        max_value=5,
-                        value=1,
-                        help="Nilai 2 berarti memproses setiap 2 frame sekali untuk menghemat CPU.",
-                    )
-
-                if start_video:
-                    primary_model = load_yolo_model(primary_model_key)
-                    secondary_model = (
-                        load_yolo_model(secondary_model_key)
-                        if (enable_comparison and secondary_model_key)
-                        else None
-                    )
-                    if primary_model:
-                        process_video_feed(
-                            video_source=temp_video_path,
-                            primary_model=primary_model,
-                            primary_model_key=primary_model_key,
-                            enable_comparison=enable_comparison,
-                            secondary_model=secondary_model,
-                            secondary_model_key=secondary_model_key,
-                            conf_threshold=conf_threshold,
-                            iou_threshold=iou_threshold,
-                            frame_skip=frame_skip_val,
-                            is_live_camera=False,
-                            adaptive_threshold=enable_adaptive_conf,
-                            enable_tracking=enable_temporal_tracking,
-                        )
-
-                if not start_video:
-                    try:
-                        if os.path.exists(temp_video_path):
-                            os.remove(temp_video_path)
-                    except OSError:
-                        pass
-
-        # Kamera hanya boleh terbuka selama mode live benar-benar aktif.
-        if not (input_source == "Live Kamera Laptop (Webcam Real-Time)" and start_webcam):
-            release_camera_device()
-
-        # Static Image Rendering (Presets, Uploaded Image, or Snapshot Webcam)
-        if image_rgb is not None:
-            st.markdown("---")
-            primary_model = load_yolo_model(primary_model_key)
-            secondary_model = (
-                load_yolo_model(secondary_model_key)
-                if (enable_comparison and secondary_model_key)
-                else None
-            )
-
-            if primary_model:
-                render_static_detection(
-                    image_rgb=image_rgb,
-                    primary_model=primary_model,
-                    primary_model_key=primary_model_key,
-                    enable_comparison=enable_comparison,
-                    secondary_model=secondary_model,
-                    secondary_model_key=secondary_model_key,
-                    conf_threshold=conf_threshold,
-                    iou_threshold=iou_threshold,
-                    adaptive_threshold=enable_adaptive_conf,
-                )
-
-    # ------------------------------------------------------------------------
-    # TAB 2: Unified Benchmark Results (CP10)
-    # ------------------------------------------------------------------------
-    with tab_results:
-        st.subheader("📊 Laporan Evaluasi Terpadu (Single Split, Per-Class Metrics)")
-        st.write(
-            "Hasil resmi pengujian komparatif seluruh model pada **split uji bebas-kebocoran (`dataset_dedup/test`)** "
-            "yang memuat **373 citra** dan **79 kotak ground-truth pejalan kaki**."
-        )
-
-        if UNIFIED_RESULTS_PATH.exists():
-            with open(UNIFIED_RESULTS_PATH, "r", encoding="utf-8") as f:
-                content = f.read()
-            st.markdown(content)
-        else:
-            st.warning("Berkas `results/experiments/unified_results.md` belum dibuat.")
-
-    # ------------------------------------------------------------------------
-    # TAB 3: Failure Cases Analysis (CP11)
-    # ------------------------------------------------------------------------
-    with tab_failures:
-        st.subheader("🔍 Analisis Kasus Gagal Deteksi Pejalan Kaki")
-        st.write(
-            "Identifikasi sistematis kasus di mana model melewatkan pejalan kaki (*False Negatives*) "
-            "atau memicu alarm palsu (*False Positives*) berdasarkan 5 kategori heuristik akademis."
-        )
-
-        grid_image_path = PROJECT_ROOT / "results" / "experiments" / "failure_cases.png"
-        if grid_image_path.exists():
-            st.image(str(grid_image_path), caption="Visual Evidence: Galeri Kasus Gagal Model", use_container_width=True)
-
-        if FAILURE_CASES_PATH.exists():
-            with open(FAILURE_CASES_PATH, "r", encoding="utf-8") as f:
-                fail_content = f.read()
-            st.markdown(fail_content)
-        else:
-            st.warning("Berkas `results/experiments/failure_cases.md` belum tersedia.")
-
-    # ------------------------------------------------------------------------
-    # TAB 4: About & Contributing (CP00)
-    # ------------------------------------------------------------------------
-    with tab_about:
-        st.subheader("👥 Anggota Kelompok 09 & Kontrak Kerja")
-        st.markdown(
-            """
-            | Nama Lengkap | NIM | Peran Utama | Fokus Tanggung Jawab |
-            |:---|:---|:---|:---|
-            | **Krisantus Amka Ginting** | 412024025 | Data & Preprocessing Lead | Audit kebocoran scene Roboflow, pipeline CLAHE/Gamma, rebuild dataset dedup |
-            | **Linardi Halim** | 212024005 | Documentation & Reporting Lead | Naskah laporan teknis, sinkronisasi tracker CP00–CP13, slide deck sidang |
-            | **Kristofer Ryan Giggs Eka Saputra** | 412024025 | Model & Training Lead | Pelatihan eksperimen A/B/C di Colab GPU T4, evaluasi metrik terpadu Wilson CI |
-            | **Leonard Franscois** | 412024035 | Demo & Deployment Lead | Aplikasi web demo interaktif Streamlit, benchmark throughput & latensi CPU |
-            """
-        )
-        st.markdown("---")
-        st.markdown(
-            "**Repositori GitHub:** [`artstzyy780/comvis-project-kelompok-9`](https://github.com/artstzyy780/comvis-project-kelompok-9)\n\n"
-            "**Prinsip Saintifik Utama:** *Anti-Leakage Data Split (Scene-level Perceptual Hashing), Reproducibility (Fixed Seed 42), Recall-First Operating Point.*"
-        )
 
 
 if __name__ == "__main__":
-    main()
+    app.run(host="0.0.0.0", port=5000, debug=False, threaded=True)

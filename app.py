@@ -185,6 +185,23 @@ def open_video_or_camera_source(video_source: Any, is_live_camera: bool) -> cv2.
     if not is_live_camera or not isinstance(video_source, int):
         return cv2.VideoCapture(video_source)
 
+    backends = (
+        [cv2.CAP_DSHOW, cv2.CAP_MSMF, cv2.CAP_ANY] if os.name == "nt" else [cv2.CAP_ANY]
+    )
+    for backend in backends:
+        cap = cv2.VideoCapture(video_source, backend)
+        if not cap.isOpened():
+            cap.release()
+            continue
+        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        cap.set(cv2.CAP_PROP_FPS, 30)
+        cap.read()  # Warm-up sensor read
+        return cap
+
+    return cv2.VideoCapture(video_source)
+
 
 def render_adas_hud_overlay(
     image_rgb: np.ndarray,
@@ -777,7 +794,7 @@ def process_video_feed(
         is_live_camera: True if capturing from live hardware webcam.
     """
     cap = open_video_or_camera_source(video_source, is_live_camera=is_live_camera)
-    if not cap.isOpened():
+    if cap is None or not cap.isOpened():
         st.error(
             "❌ Tidak dapat membuka sumber video/kamera. Pastikan perangkat terhubung "
             "dan tidak sedang digunakan oleh aplikasi lain (seperti Zoom/Teams)."
